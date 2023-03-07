@@ -16,6 +16,7 @@ from utils import utils_option as option
 from utils.utils_dist import init_dist, get_dist_info
 
 from data.select_dataset import define_Dataset
+from models.select_model import define_Model
 
 def main(json_path='options/option.json'):
 
@@ -130,26 +131,100 @@ def main(json_path='options/option.json'):
     # ----------------------------------------
     '''
 
+    model = define_Model(opt)
+    model.init_train()
+    if opt['rank'] == 0:
+        logger.info(model.info_network())
+        logger.info(model.info_params())
+
     '''
     # ----------------------------------------
     # Step--4 (main training)
     # ----------------------------------------
     '''
-    for epoch in range(10000000000000): # don't forget the terminate condition
+    for epoch in range(10000000000000): # TODO: the terminate condition
         if opt['dist']:
             train_sampler.set_epoch(epoch) # set the sampler in data distribution
 
         for i, train_data in enumerate(train_loader):
 
-            #TODO: check the I/O of data
-            img_L = train_data['L']
-            img_H = train_data['H']
-            img_L = util.tensor2uint(img_L)
-            img_H = util.tensor2uint(img_H)
-            util.imsave(img_L, 'test_L.png')
-            util.imsave(img_H, 'test_H.png')
-            print(train_data['L_path'], train_data['H_path'])
-            time.sleep(10)
+            current_step += 1
+
+            # -------------------------------
+            # 1) update learning rate
+            # -------------------------------
+            model.update_learning_rate(current_step)
+
+            # -------------------------------
+            # 2) feed patch pairs
+            # -------------------------------
+            model.feed_data(train_data)
+
+            # -------------------------------
+            # 3) optimize parameters
+            # -------------------------------
+            model.optimize_parameters(current_step)
+
+            # -------------------------------
+            # 4) training information
+            # -------------------------------
+            if current_step % opt['train']['checkpoint_print'] == 0 and opt['rank'] == 0:
+                logs = model.current_log()  # such as loss
+                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
+                for k, v in logs.items():  # merge log information into message
+                    message += '{:s}: {:.3e} '.format(k, v)
+                logger.info(message)
+
+            # -------------------------------
+            # 5) save model
+            # -------------------------------
+            if current_step % opt['train']['checkpoint_save'] == 0 and opt['rank'] == 0:
+                logger.info('Saving the model.')
+                model.save(current_step)
+
+            # -------------------------------
+            # 6) testing
+            # -------------------------------
+            if current_step % opt['train']['checkpoint_test'] == 0 and opt['rank'] == 0:
+
+                avg_psnr = 0.0
+                idx = 0
+
+                for test_data in test_loader:
+                    idx += 1
+                    image_name_ext = os.path.basename(test_data['L_path'][0])
+                    img_name, ext = os.path.splitext(image_name_ext)
+
+                    img_dir = os.path.join(opt['path']['images'], img_name)
+                    util.mkdir(img_dir)
+
+                    model.feed_data(test_data)
+                    model.test()
+
+                    visuals = model.current_visuals()
+                    E_img = util.tensor2uint(visuals['E'])
+                    H_img = util.tensor2uint(visuals['H'])
+
+                    # -----------------------
+                    # save estimated image E
+                    # -----------------------
+                    save_img_path = os.path.join(img_dir, '{:s}_{:d}.png'.format(img_name, current_step))
+                    util.imsave(E_img, save_img_path)
+
+                    # -----------------------
+                    # calculate PSNR
+                    # -----------------------
+                    current_psnr = util.calculate_psnr(E_img, H_img)
+
+                    logger.info('{:->4d}--> {:>10s} | {:<4.2f}dB'.format(idx, image_name_ext, current_psnr))
+
+                    avg_psnr += current_psnr
+
+                avg_psnr = avg_psnr / idx
+
+                # testing log
+                logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+
 
 if __name__ == '__main__':
     main()
