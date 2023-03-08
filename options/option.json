@@ -1,5 +1,5 @@
 {
-    "task": "dncnn25"  //  root/task/images-models-options
+    "task": "unet"  //  root/task/images-models-options
     , "model": "plain" // "plain"
     , "gpu_ids": [0]
   
@@ -39,7 +39,7 @@
     }
   
     , "netG": {
-      "net_type": "dncnn" // "dncnn" | "fdncnn" | "ffdnet" | "srmd" | "dpsr" | "msrresnet0" |  "msrresnet1" | "rrdb" 
+      "net_type": "unet" // "dncnn" | "fdncnn" | "ffdnet" | "srmd" | "dpsr" | "msrresnet0" |  "msrresnet1" | "rrdb" 
       , "in_nc": 1        // input channel number
       , "out_nc": 1       // ouput channel number
       , "nc": 64          // 64 for "dncnn"
