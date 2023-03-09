@@ -1,4 +1,5 @@
 import os.path
+from pathlib import Path
 import math
 import argparse
 import time
@@ -14,6 +15,7 @@ from utils import utils_logger
 from utils import utils_image as util
 from utils import utils_option as option
 from utils.utils_dist import init_dist, get_dist_info
+from tensorboardX import SummaryWriter
 
 from data.select_dataset import define_Dataset
 from models.select_model import define_Model
@@ -30,13 +32,25 @@ def main(json_path='options/option.json'):
     parser.add_argument('--launcher', default='pytorch', help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--dist', default=False)
+    parser.add_argument('--tflog', type=bool, default=True,
+                    help='Using tensorboardX or not')
+    parser.add_argument('--log_dir', default='./logs',
+                    help='Directory to save the log')
+    
+    args = parser.parse_args()
+    
+    tflog = args.tflog
+    if tflog:
+        log_dir = Path(args.log_dir)
+        log_dir.mkdir(exist_ok=True, parents=True)
+        writer = SummaryWriter(log_dir=str(log_dir))
 
-    opt = option.parse(parser.parse_args().opt, is_train=True)
+    opt = option.parse(args.opt, is_train=True)
 
     # ----------------------------------------
     # distributed settings of training 
     # ----------------------------------------
-    opt['dist'] = parser.parse_args().dist
+    opt['dist'] = args.dist
     if opt['dist']:
         init_dist('pytorch')
     opt['rank'], opt['word_size'] = get_dist_info()
@@ -136,13 +150,14 @@ def main(json_path='options/option.json'):
     if opt['rank'] == 0:
         logger.info(model.info_network())
         logger.info(model.info_params())
+        pass
 
     '''
     # ----------------------------------------
     # Step--4 (main training)
     # ----------------------------------------
     '''
-    for epoch in range(10000000000000): # TODO: the terminate condition
+    for epoch in range(1000000000): # TODO: the terminate condition
         if opt['dist']:
             train_sampler.set_epoch(epoch) # set the sampler in data distribution
 
@@ -168,12 +183,18 @@ def main(json_path='options/option.json'):
             # -------------------------------
             # 4) training information
             # -------------------------------
-            if current_step % opt['train']['checkpoint_print'] == 0 and opt['rank'] == 0:
-                logs = model.current_log()  # such as loss
-                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
+            if tflog:
+                logs = model.current_log()
+                writer.add_scalar("lr", model.current_learning_rate(), epoch + 1)
                 for k, v in logs.items():  # merge log information into message
-                    message += '{:s}: {:.3e} '.format(k, v)
-                logger.info(message)
+                    writer.add_scalar(k, v, epoch + 1)
+            else:
+                if current_step % opt['train']['checkpoint_print'] == 0 and opt['rank'] == 0:
+                    logs = model.current_log()  # such as loss
+                    message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
+                    for k, v in logs.items():  # merge log information into message
+                        message += '{:s}: {:.3e} '.format(k, v)
+                    logger.info(message)
 
             # -------------------------------
             # 5) save model
@@ -223,8 +244,11 @@ def main(json_path='options/option.json'):
                 avg_psnr = avg_psnr / idx
 
                 # testing log
-                logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
-
+                if tflog:
+                    writer.add_scalar('Average PSNR', avg_psnr, epoch + 1)
+                else:
+                    logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+    writer.close()
 
 if __name__ == '__main__':
     main()
