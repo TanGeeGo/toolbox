@@ -7,7 +7,7 @@
     , "n_channels": 1  // broadcast to "datasets", 1 for grayscale, 3 for color
   
     , "path": {
-      "root": "denoising"            // "denoising" | "superresolution"
+      "root": "results/denoising"            // "denoising" | "superresolution"
       , "pretrained_netG": null      // path of pretrained model
     }
   
