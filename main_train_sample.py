@@ -15,7 +15,7 @@ from utils import utils_logger
 from utils import utils_image as util
 from utils import utils_option as option
 from utils.utils_dist import init_dist, get_dist_info
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 from data.select_dataset import define_Dataset
 from models.select_model import define_Model
