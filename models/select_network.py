@@ -44,12 +44,61 @@ def define_G(opt):
                    act_mode=opt_net['act_mode'])
     
     # ----------------------------------------
-    # others
+    # MIMO-UNet
     # ----------------------------------------
+    elif net_type == 'mimounet':
+        from models.network_mimounet import MIMOUNet as net
+        netG = net()
+    
+    elif net_type == 'mimounetplus':
+        from models.network_mimounet import MIMOUNetPlus as net
+        netG = net()
+    
+    # ----------------------------------------
+    # MPRNet
+    # ----------------------------------------
+    elif net_type == 'mprnet':
+        from models.network_mprnet import MPRNet as net
+        netG = MPRNet(in_c=opt_net['in_nc'],
+                      out_c=opt_net['out_nc'])
 
+    # ----------------------------------------
+    # NAFNet
+    # ----------------------------------------
+    elif net_type == 'nafnet':
+        from models.network_nafnet import NAFNet as net
+        netG = NAFNet(img_channel=opt_net['in_nc'] )
+
+    # ----------------------------------------
+    # Restormer
+    # ----------------------------------------
+    elif net_type == 'restormer':
+        from models.network_restormer import Restormer as net
+        netG = Restormer(inp_channels=opt_net['in_nc'],
+                         out_channels=opt_net['out_nc'] )
+    
+    # ----------------------------------------
+    # Stripformer
+    # ----------------------------------------
+    elif net_type == 'stripformer':
+        from models.network_stripformer import Stripformer as net
+        netG = Stripformer() 
+        
+    # ----------------------------------------
+    # Stripformer
+    # ----------------------------------------
+    elif net_type == 'uformer':
+        from models.network_uformer import Uformer as net
+        netG = Uformer( dd_in=opt_net['in_nc'],
+                        in_chans=opt_net['out_nc'])
+               
     # ----------------------------------------
     # super-resolution task
     # ----------------------------------------
+    elif net_type == 'vapsr':
+        from models.network_vapsr import vapsr as net
+        netG = vapsr( num_in_ch=opt_net['in_nc'], 
+                      num_out_ch=opt_net['out_nc'])
 
     # ----------------------------------------
     # others
