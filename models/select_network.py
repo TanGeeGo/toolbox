@@ -93,7 +93,7 @@ def define_G(opt):
                         in_chans=opt_net['out_nc'])
                
     # ----------------------------------------
-    # super-resolution task
+    # vapsr
     # ----------------------------------------
     elif net_type == 'vapsr':
         from models.network_vapsr import vapsr as net
