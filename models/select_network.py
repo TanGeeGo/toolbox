@@ -59,7 +59,7 @@ def define_G(opt):
     # ----------------------------------------
     elif net_type == 'mprnet':
         from models.network_mprnet import MPRNet as net
-        netG = MPRNet(in_c=opt_net['in_nc'],
+        netG = net(in_c=opt_net['in_nc'],
                       out_c=opt_net['out_nc'])
 
     # ----------------------------------------
@@ -67,14 +67,14 @@ def define_G(opt):
     # ----------------------------------------
     elif net_type == 'nafnet':
         from models.network_nafnet import NAFNet as net
-        netG = NAFNet(img_channel=opt_net['in_nc'] )
+        netG = net(img_channel=opt_net['in_nc'] )
 
     # ----------------------------------------
     # Restormer
     # ----------------------------------------
     elif net_type == 'restormer':
         from models.network_restormer import Restormer as net
-        netG = Restormer(inp_channels=opt_net['in_nc'],
+        netG = net(inp_channels=opt_net['in_nc'],
                          out_channels=opt_net['out_nc'] )
     
     # ----------------------------------------
@@ -82,14 +82,14 @@ def define_G(opt):
     # ----------------------------------------
     elif net_type == 'stripformer':
         from models.network_stripformer import Stripformer as net
-        netG = Stripformer() 
+        netG = net() 
         
     # ----------------------------------------
     # Stripformer
     # ----------------------------------------
     elif net_type == 'uformer':
         from models.network_uformer import Uformer as net
-        netG = Uformer( dd_in=opt_net['in_nc'],
+        netG = net( dd_in=opt_net['in_nc'],
                         in_chans=opt_net['out_nc'])
                
     # ----------------------------------------
@@ -97,7 +97,7 @@ def define_G(opt):
     # ----------------------------------------
     elif net_type == 'vapsr':
         from models.network_vapsr import vapsr as net
-        netG = vapsr( num_in_ch=opt_net['in_nc'], 
+        netG = net( num_in_ch=opt_net['in_nc'], 
                       num_out_ch=opt_net['out_nc'])
 
     # ----------------------------------------
