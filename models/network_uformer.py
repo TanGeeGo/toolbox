@@ -378,7 +378,7 @@ class SepConv2d(torch.nn.Module):
         return flops
         
 ######## Embedding for q,k,v ########
-class ConvProjection(nn.Module):
+class convProjection(nn.Module):
     def __init__(self, dim, heads = 8, dim_head = 64, kernel_size=3, q_stride=1, k_stride=1, v_stride=1, dropout = 0.,
                  last_stage=False,bias=True):
 
@@ -418,7 +418,7 @@ class ConvProjection(nn.Module):
         return flops
 
 
-class LinearProjection(nn.Module):
+class linearProjection(nn.Module):
     def __init__(self, dim, heads = 8, dim_head = 64, dropout = 0., bias=True):
         super().__init__()
         inner_dim = dim_head *  heads
@@ -478,9 +478,9 @@ class WindowAttention(nn.Module):
         trunc_normal_(self.relative_position_bias_table, std=.02)
             
         if token_projection =='conv':
-            self.qkv = ConvProjection(dim,num_heads,dim//num_heads,bias=qkv_bias)
+            self.qkv = convProjection(dim,num_heads,dim//num_heads,bias=qkv_bias)
         elif token_projection =='linear':
-            self.qkv = LinearProjection(dim,num_heads,dim//num_heads,bias=qkv_bias)
+            self.qkv = linearProjection(dim,num_heads,dim//num_heads,bias=qkv_bias)
         else:
             raise Exception("Projection error!") 
         
@@ -555,7 +555,7 @@ class Attention(nn.Module):
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim ** -0.5
             
-        self.qkv = LinearProjection(dim,num_heads,dim//num_heads,bias=qkv_bias)
+        self.qkv = linearProjection(dim,num_heads,dim//num_heads,bias=qkv_bias)
         
         self.token_projection = token_projection
         self.attn_drop = nn.Dropout(attn_drop)
