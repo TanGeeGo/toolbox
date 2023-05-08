@@ -25,13 +25,29 @@ def define_G(opt):
     # ----------------------------------------
     # RRDB
     # ----------------------------------------
+    
     if net_type == 'rrdb':
-        from models.network_rrdb import RRDBNet as net
+        from models.network_rrdb import RRDB as net
         netG = net(in_nc=opt_net['in_nc'],
                    out_nc=opt_net['out_nc'],
                    nc=opt_net['nc'],
-                   nb=opt_net['nb'],  # total number of RRDB blocks
-                   act_mode=opt_net['act_mode'])
+                   nb=opt_net['nb'],
+                   gc=opt_net['gc'],
+                   upscale=opt_net['scale'],
+                   act_mode=opt_net['act_mode'],
+                   upsample_mode=opt_net['upsample_mode'])
+
+    # ----------------------------------------
+    # RRDBNet
+    # ----------------------------------------
+    elif net_type == 'rrdbnet':  # RRDB
+        from models.network_rrdbnet import RRDBNet as net
+        netG = net(in_nc=opt_net['in_nc'],
+                   out_nc=opt_net['out_nc'],
+                   nc=opt_net['nc'],
+                   nb=opt_net['nb'],
+                   gc=opt_net['gc'],
+                   sf=opt_net['scale'])
         
     # ----------------------------------------
     # UNet
