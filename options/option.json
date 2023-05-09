@@ -1,6 +1,6 @@
 {
     "task": "unet"  //  root/task/images-models-options
-    , "model": "plain" // "plain"
+    , "model": "plain" // "plain" | "plain_1in3out" for mimounet and mprnet
     , "gpu_ids": [1]
   
     , "scale": 1       // broadcast to "netG" if SISR

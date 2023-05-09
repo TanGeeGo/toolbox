@@ -344,4 +344,4 @@ class MPRNet(nn.Module):
 
         stage3_img = self.tail(x3_cat)
 
-        return [stage3_img+x3_img, stage2_img, stage1_img]
+        return [stage1_img, stage2_img, stage3_img+x3_img]
