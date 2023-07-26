@@ -1,10 +1,10 @@
 {
     "task": "unet"  //  root/task/images-models-options
-    , "model": "plain" // "plain" | "plain_1in3out" for mimounet and mprnet
+    , "model": "plain" // "plain"
     , "gpu_ids": [1]
   
     , "scale": 1       // broadcast to "netG" if SISR
-    , "n_channels": 1  // broadcast to "datasets", 1 for grayscale, 3 for color
+    , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
   
     , "path": {
       "root": "results/denoising"            // "denoising" | "superresolution"

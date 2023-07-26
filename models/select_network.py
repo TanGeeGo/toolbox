@@ -64,11 +64,15 @@ def define_G(opt):
     # ----------------------------------------
     elif net_type == 'mimounet':
         from models.network_mimounet import MIMOUNet as net
-        netG = net()
+        netG = net(num_res=opt_net['nb'], base_channel=opt_net['nc'])
     
     elif net_type == 'mimounetplus':
         from models.network_mimounet import MIMOUNetPlus as net
-        netG = net()
+        netG = net(num_res=opt_net['nb'], base_channel=opt_net['nc'])
+
+    elif net_type == 'mimounet-mff':
+        from models.network_mimounet import MIMOUNetMFF as net
+        netG = net(num_res=opt_net['nb'], base_channel=opt_net['nc'])
     
     # ----------------------------------------
     # MPRNet
@@ -91,7 +95,9 @@ def define_G(opt):
     elif net_type == 'restormer':
         from models.network_restormer import Restormer as net
         netG = net(inp_channels=opt_net['in_nc'],
-                         out_channels=opt_net['out_nc'] )
+                   out_channels=opt_net['out_nc'],
+                   dim=opt_net['nc'],
+                   num_blocks=opt_net['nb'])
     
     # ----------------------------------------
     # Stripformer
@@ -293,8 +299,9 @@ def init_weights(net, init_type='xavier_uniform', init_bn_type='uniform', gain=1
                 raise NotImplementedError('Initialization method [{:s}] is not implemented'.format(init_bn_type))
 
     if init_type not in ['default', 'none']:
-        print('Initialization method [{:s} + {:s}], gain is [{:.2f}]'.format(init_type, init_bn_type, gain))
+        # print('Initialization method [{:s} + {:s}], gain is [{:.2f}]'.format(init_type, init_bn_type, gain))
         fn = functools.partial(init_fn, init_type=init_type, init_bn_type=init_bn_type, gain=gain)
         net.apply(fn)
     else:
-        print('Pass this initialization! Initialization was done during network definition!')
+        # print('Pass this initialization! Initialization was done during network definition!')
+        pass

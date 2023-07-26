@@ -2,11 +2,12 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
-from torch.optim import Adam
+from torch.optim import Adam, AdamW
 
 from models.select_network import define_G
 from models.model_base import ModelBase
-from models.loss import CharbonnierLoss, SSIMLoss
+from models._loss import CharbonnierLoss, SSIMLoss
+from models._lr_scheduler import MultiStepRestartLR, CosineAnnealingRestartLR, CosineAnnealingRestartCyclicLR
 
 from utils.utils_model import test_mode
 from utils.utils_regularizers import regularizer_orth, regularizer_clip
@@ -43,6 +44,18 @@ class ModelPlain(ModelBase):
         self.load_optimizers()                # load optimizer
         self.define_scheduler()               # define scheduler
         self.log_dict = OrderedDict()         # log
+
+    # ----------------------------------------
+    # initialize evaluation
+    # ----------------------------------------
+    def init_test(self):
+        self.load()
+        self.netG.eval()
+        self.log_dict = OrderedDict()         # log
+        self.log_dict['psnr'] = []
+        self.log_dict['ssim'] = []
+        self.log_dict['psnr_y'] = []
+        self.log_dict['ssim_y'] = []
 
     # ----------------------------------------
     # load pre-trained G model
@@ -86,19 +99,35 @@ class ModelPlain(ModelBase):
     # ----------------------------------------
     def define_loss(self):
         G_lossfn_type = self.opt_train['G_lossfn_type']
-        if G_lossfn_type == 'l1':
-            self.G_lossfn = nn.L1Loss().to(self.device)
-        elif G_lossfn_type == 'l2':
-            self.G_lossfn = nn.MSELoss().to(self.device)
-        elif G_lossfn_type == 'l2sum':
-            self.G_lossfn = nn.MSELoss(reduction='sum').to(self.device)
-        elif G_lossfn_type == 'ssim':
-            self.G_lossfn = SSIMLoss().to(self.device)
-        elif G_lossfn_type == 'charbonnier':
-            self.G_lossfn = CharbonnierLoss(self.opt_train['G_charbonnier_eps']).to(self.device)
-        else:
-            raise NotImplementedError('Loss type [{:s}] is not found.'.format(G_lossfn_type))
+        # check the cases of one loss or multiple losses
+        self.G_lossfn_type_ = G_lossfn_type.split('+')
+        if len(self.G_lossfn_type_) == 1:
+            if G_lossfn_type == 'l1':
+                self.G_lossfn = nn.L1Loss().to(self.device)
+            elif G_lossfn_type == 'l2':
+                self.G_lossfn = nn.MSELoss().to(self.device)
+            elif G_lossfn_type == 'l2sum':
+                self.G_lossfn = nn.MSELoss(reduction='sum').to(self.device)
+            elif G_lossfn_type == 'ssim':
+                self.G_lossfn = SSIMLoss().to(self.device)
+            elif G_lossfn_type == 'charbonnier':
+                self.G_lossfn = CharbonnierLoss(self.opt_train['G_charbonnier_eps']).to(self.device)
+            else:
+                raise NotImplementedError('Loss type [{:s}] is not found.'.format(G_lossfn_type))
+        elif len(self.G_lossfn_type_) == 2:
+            if G_lossfn_type == 'l1+ssim':
+                self.G_lossfn = nn.L1Loss().to(self.device)
+                self.G_lossfn_aux = SSIMLoss().to(self.device)
+            elif G_lossfn_type == 'l1+fft':
+                self.G_lossfn = nn.L1Loss().to(self.device)
+                self.G_lossfn_aux = nn.L1Loss().to(self.device)
+
         self.G_lossfn_weight = self.opt_train['G_lossfn_weight']
+        if len(self.G_lossfn_type_) > 1:
+            assert len(self.G_lossfn_type_) == len(self.G_lossfn_weight), ValueError(\
+                'Loss type not equals to Loss weight.')
+        else:
+            pass
 
     # ----------------------------------------
     # define optimizer
@@ -114,6 +143,10 @@ class ModelPlain(ModelBase):
             self.G_optimizer = Adam(G_optim_params, lr=self.opt_train['G_optimizer_lr'],
                                     betas=self.opt_train['G_optimizer_betas'],
                                     weight_decay=self.opt_train['G_optimizer_wd'])
+        elif self.opt_train['G_optimizer_type'] == 'adamw':
+            self.G_optimizer = AdamW(G_optim_params, lr=self.opt_train['G_optimizer_lr'],
+                                    betas=self.opt_train['G_optimizer_betas'],
+                                    weight_decay=self.opt_train['G_optimizer_wd'])
         else:
             raise NotImplementedError
 
@@ -127,10 +160,15 @@ class ModelPlain(ModelBase):
                                                             self.opt_train['G_scheduler_gamma']
                                                             ))
         elif self.opt_train['G_scheduler_type'] == 'CosineAnnealingWarmRestarts':
-            self.schedulers.append(lr_scheduler.CosineAnnealingWarmRestarts(self.G_optimizer,
-                                                            self.opt_train['G_scheduler_periods'],
-                                                            self.opt_train['G_scheduler_restart_weights'],
-                                                            self.opt_train['G_scheduler_eta_min']
+            self.schedulers.append(lr_scheduler.CosineAnnealingWarmRestarts(self.G_optimizer, 
+                                                            self.opt_train['G_scheduler_period'],
+                                                            eta_min=self.opt_train['G_scheduler_eta_min']
+                                                            ))
+        elif self.opt_train['G_scheduler_type'] == 'CosineAnnealingRestartCyclicLR':
+            self.schedulers.append(CosineAnnealingRestartCyclicLR(self.G_optimizer,
+                                                            periods=self.opt_train['G_scheduler_periods'],
+                                                            restart_weights=self.opt_train['G_scheduler_restart_weights'],
+                                                            eta_mins=self.opt_train['G_scheduler_eta_mins']
                                                             ))
         else:
             raise NotImplementedError
@@ -162,7 +200,16 @@ class ModelPlain(ModelBase):
     def optimize_parameters(self, current_step):
         self.G_optimizer.zero_grad()
         self.netG_forward()
-        G_loss = self.G_lossfn_weight * self.G_lossfn(self.E, self.H)
+        if len(self.G_lossfn_weight) == 1:
+            G_loss = self.G_lossfn_weight[0] * self.G_lossfn(self.E, self.H)
+        elif len(self.G_lossfn_weight) == 2:
+            if 'fft' in self.G_lossfn_type_:
+                G_loss = self.G_lossfn_weight[0] * self.G_lossfn(self.E, self.H) + \
+                    self.G_lossfn_weight[1] * self.G_lossfn_aux(torch.fft.rfft2(self.E), torch.fft.rfft2(self.H))
+            else:
+                G_loss = self.G_lossfn_weight[0] * self.G_lossfn(self.E, self.H) + \
+                    self.G_lossfn_weight[1] * self.G_lossfn_aux(self.E, self.H)
+
         G_loss.backward()
 
         # ------------------------------------
@@ -171,7 +218,7 @@ class ModelPlain(ModelBase):
         # `clip_grad_norm` helps prevent the exploding gradient problem.
         G_optimizer_clipgrad = self.opt_train['G_optimizer_clipgrad'] if self.opt_train['G_optimizer_clipgrad'] else 0
         if G_optimizer_clipgrad > 0:
-            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=self.opt_train['G_optimizer_clipgrad'], norm_type=2)
+            torch.nn.utils.clip_grad_norm_(self.netG.parameters(), max_norm=self.opt_train['G_optimizer_clipgrad'], norm_type=2)
 
         self.G_optimizer.step()
 
@@ -192,18 +239,18 @@ class ModelPlain(ModelBase):
             self.update_E(self.opt_train['E_decay'])
 
     # ----------------------------------------
-    # test / inference
+    # valid / inference
     # ----------------------------------------
-    def test(self):
+    def valid(self):
         self.netG.eval()
         with torch.no_grad():
             self.netG_forward()
         self.netG.train()
 
     # ----------------------------------------
-    # test / inference x8
+    # valid / inference x8
     # ----------------------------------------
-    def testx8(self):
+    def validx8(self):
         self.netG.eval()
         with torch.no_grad():
             self.E = test_mode(self.netG, self.L, mode=3, sf=self.opt['scale'], modulo=1)
@@ -270,3 +317,4 @@ class ModelPlain(ModelBase):
     def info_params(self):
         msg = self.describe_params(self.netG)
         return msg
+    

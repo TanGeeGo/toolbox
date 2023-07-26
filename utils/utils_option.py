@@ -60,11 +60,11 @@ def parse(opt_path, is_train=True):
 
     path_task = os.path.join(opt['path']['root'], opt['task'])
     opt['path']['task'] = path_task
-    opt['path']['log'] = path_task
+    opt['path']['log'] = os.path.join(path_task, 'log')
     opt['path']['options'] = os.path.join(path_task, 'options')
-
+    opt['path']['models'] = os.path.join(path_task, 'models')
+    
     if is_train:
-        opt['path']['models'] = os.path.join(path_task, 'models')
         opt['path']['images'] = os.path.join(path_task, 'images')
     else:  # test
         opt['path']['images'] = os.path.join(path_task, 'test_images')
@@ -79,7 +79,6 @@ def parse(opt_path, is_train=True):
     # ----------------------------------------
     gpu_list = ','.join(str(x) for x in opt['gpu_ids'])
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu_list
-    print('export CUDA_VISIBLE_DEVICES=' + gpu_list)
 
     # ----------------------------------------
     # default setting for distributeddataparallel
@@ -91,7 +90,6 @@ def parse(opt_path, is_train=True):
     if 'dist' not in opt:
         opt['dist'] = False
     opt['num_gpu'] = len(opt['gpu_ids'])
-    print('number of GPUs is: ' + str(opt['num_gpu']))
 
     # ----------------------------------------
     # default setting for perceptual loss
@@ -117,7 +115,7 @@ def parse(opt_path, is_train=True):
     if 'G_scheduler_restart_weights' not in opt['train']:
         opt['train']['G_scheduler_restart_weights'] = 1
     if 'G_optimizer_wd' not in opt['train']:
-        opt['train']['G_optimizer_wd'] = 0
+        opt['train']['G_optimizer_wd'] = 1e-4
     if 'G_optimizer_reuse' not in opt['train']:
         opt['train']['G_optimizer_reuse'] = False
     if 'netD' in opt and 'D_optimizer_reuse' not in opt['train']:

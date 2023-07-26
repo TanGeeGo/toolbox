@@ -9,14 +9,38 @@ import math
 import numpy as np
 import time
 from torch import einsum
+from torchstat import stat # complexity evaluation
 
+class DepthwiseConv2d(torch.nn.Conv2d):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size=3,
+                 stride=1,
+                 padding=0,
+                 dilation=1,
+                 bias=True,
+                 padding_mode='zeros'
+                 ):
+        super().__init__(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=in_channels,
+            bias=bias,
+            padding_mode=padding_mode
+        )
 
 class FastLeFF(nn.Module):
     
     def __init__(self, dim=32, hidden_dim=128, act_layer=nn.GELU,drop = 0.):
         super().__init__()
 
-        from torch_dwconv import depthwise_conv2d, DepthwiseConv2d
+        # 
+        # from torch_dwconv import depthwise_conv2d, DepthwiseConv2d
 
         self.linear1 = nn.Sequential(nn.Linear(dim, hidden_dim),
                                 act_layer())
@@ -1327,6 +1351,8 @@ class Uformer(nn.Module):
         flops += self.output_proj.flops(self.reso,self.reso)
         return flops
 
+def get_parameter_number(model, input_size=(3, 256, 256)):
+    stat(model, input_size)
 
 if __name__ == "__main__":
     input_size = 256
@@ -1340,5 +1366,8 @@ if __name__ == "__main__":
     #                                             print_per_layer_stat=True, verbose=True)
     # print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
     # print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+
+    get_parameter_number(model_restoration)
+
     print('# model_restoration parameters: %.2f M'%(sum(param.numel() for param in model_restoration.parameters())/ 1e6))
     print("number of GFLOPs: %.2f G"%(model_restoration.flops() / 1e9))

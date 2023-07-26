@@ -11,12 +11,13 @@ def define_Model(opt):
 
     if model == 'plain':
         from models.model_plain import ModelPlain as M
-    if model == 'plain_1in3out':
-        from models.model_plain_1in3out import ModelPlain_1in3out as M
+    elif model == 'multiout':
+        from models.model_multiout import ModelMultiout as M
+    elif model == 'progressive':
+        from models.model_progressive import ModelProgressive as M
     else:
         raise NotImplementedError('Model [{:s}] is not defined.'.format(model))
 
     m = M(opt)
 
-    print('Training model [{:s}] is created.'.format(m.__class__.__name__))
     return m

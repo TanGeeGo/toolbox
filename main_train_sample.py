@@ -1,4 +1,4 @@
-import os.path
+import os
 from pathlib import Path
 import math
 import argparse
@@ -21,7 +21,7 @@ from data.select_dataset import define_Dataset
 from models.select_model import define_Model
 
 def main(json_path='options/option.json'):
-
+    
     '''
     # ----------------------------------------
     # Step--1 (prepare opt)
@@ -29,24 +29,18 @@ def main(json_path='options/option.json'):
     '''
     parser = argparse.ArgumentParser()
     parser.add_argument('--opt', type=str, default=json_path, help='Path to option JSON file.')
-    parser.add_argument('--launcher', default='pytorch', help='job launcher')
-    parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--dist', default=False)
-    parser.add_argument('--tflog', type=bool, default=True,
-                    help='Using tensorboardX or not')
-    parser.add_argument('--log_dir', default='./logs',
-                    help='Directory to save the log')
     
     args = parser.parse_args()
     
-    tflog = args.tflog
-    if tflog:
-        log_dir = Path(args.log_dir)
-        log_dir.mkdir(exist_ok=True, parents=True)
-        writer = SummaryWriter(log_dir=str(log_dir))
-
     opt = option.parse(args.opt, is_train=True)
 
+    torch.backends.cudnn.benchmark = True
+    # torch.backends.cudnn.deterministic = True
+
+    log_dir = Path(opt['path']['log'])
+    log_dir.mkdir(exist_ok=True, parents=True)
+    writer = SummaryWriter(log_dir=str(log_dir))
     # ----------------------------------------
     # distributed settings of training 
     # ----------------------------------------
@@ -56,6 +50,8 @@ def main(json_path='options/option.json'):
     opt['rank'], opt['word_size'] = get_dist_info()
 
     if opt['rank'] == 0:
+        print('export CUDA_VISIBLE_DEVICES=' + ','.join(str(x) for x in opt['gpu_ids']))
+        print('number of GPUs is: ' + str(opt['num_gpu']))
         util.mkdirs((path for key, path in opt['path'].items() if 'pretrained' not in key))
     
     # ----------------------------------------
@@ -106,11 +102,13 @@ def main(json_path='options/option.json'):
 
     # ----------------------------------------
     # 1) create_dataset
-    # 2) creat_dataloader for train and test
+    # 2) creat_dataloader for train and valid
     # ----------------------------------------
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'train':
             train_set = define_Dataset(dataset_opt)
+            if opt['rank'] == 0:
+                print('Dataset [{:s} - {:s}] is created.'.format(train_set.__class__.__name__, dataset_opt['name']))
             train_size = int(math.ceil(len(train_set) / dataset_opt['dataloader_batch_size']))
             if opt['rank'] == 0:
                 logger.info('Number of train images: {:,d}, iters: {:,d}'.format(len(train_set), train_size))
@@ -131,13 +129,19 @@ def main(json_path='options/option.json'):
                                           drop_last=True,
                                           pin_memory=True)
 
-        elif phase == 'test':
-            test_set = define_Dataset(dataset_opt)
-            test_loader = DataLoader(test_set, batch_size=1,
-                                     shuffle=False, num_workers=1,
-                                     drop_last=False, pin_memory=True)
+        elif phase == 'valid':
+            valid_set = define_Dataset(dataset_opt)
+            if opt['rank'] == 0:
+                print('Dataset [{:s} - {:s}] is created.'.format(valid_set.__class__.__name__, dataset_opt['name']))
+            valid_loader = DataLoader(valid_set, 
+                                      batch_size=dataset_opt['dataloader_batch_size'],
+                                      shuffle=False,
+                                      num_workers=dataset_opt['dataloader_num_workers'],
+                                      drop_last=False,
+                                      pin_memory=True)
         else:
-            raise NotImplementedError("Phase [%s] is not recognized." % phase)
+            # leave the phase of test into the evaluation
+            pass
 
     '''
     # ----------------------------------------
@@ -146,18 +150,27 @@ def main(json_path='options/option.json'):
     '''
 
     model = define_Model(opt)
-    model.init_train()
     if opt['rank'] == 0:
-        logger.info(model.info_network())
-        logger.info(model.info_params())
-        pass
+        print('Training model [{:s}] is created.'.format(model.__class__.__name__))
+        if opt['netG']['init_type'] not in ['default', 'none']:
+            print('Initialization method [{:s} + {:s}], gain is [{:.2f}]'.format(\
+                opt['netG']['init_type'],  opt['netG']['init_bn_type'],  opt['netG']['gain']))
+        else:
+            print('Pass this initialization! Initialization was done during network definition!')
+            
+    model.init_train()
+    # if you want to see the detail of the model
+    # if opt['rank'] == 0:
+    #     logger.info(model.info_network())
+    #     logger.info(model.info_params())
+    #     pass
 
     '''
     # ----------------------------------------
     # Step--4 (main training)
     # ----------------------------------------
     '''
-    for epoch in range(1000000000): # TODO: the terminate condition
+    for epoch in range(opt['train']['total_epoch']): # TODO: the terminate condition
         if opt['dist']:
             train_sampler.set_epoch(epoch) # set the sampler in data distribution
 
@@ -166,61 +179,60 @@ def main(json_path='options/option.json'):
             current_step += 1
 
             # -------------------------------
-            # 1) update learning rate
+            # 1) feed patch pairs
             # -------------------------------
-            model.update_learning_rate(current_step)
-
+            model.feed_data(train_data, epoch) if opt['model'] == 'progressive' else model.feed_data(train_data)
+            
             # -------------------------------
-            # 2) feed patch pairs
-            # -------------------------------
-            model.feed_data(train_data)
-
-            # -------------------------------
-            # 3) optimize parameters
+            # 2) optimize parameters
             # -------------------------------
             model.optimize_parameters(current_step)
 
             # -------------------------------
-            # 4) training information
+            # 3) training information
             # -------------------------------
-            if tflog:
-                logs = model.current_log()
-                writer.add_scalar("lr", model.current_learning_rate(), epoch + 1)
+            logs = model.current_log()
+            writer.add_scalar("lr", model.current_learning_rate(), epoch + 1)
+            for k, v in logs.items():  # merge log information into message
+                writer.add_scalar(k, v, epoch + 1)
+            
+            if current_step % opt['train']['checkpoint_print'] == 0 and opt['rank'] == 0:
+                logs = model.current_log()  # such as loss
+                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
                 for k, v in logs.items():  # merge log information into message
-                    writer.add_scalar(k, v, epoch + 1)
-            else:
-                if current_step % opt['train']['checkpoint_print'] == 0 and opt['rank'] == 0:
-                    logs = model.current_log()  # such as loss
-                    message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
-                    for k, v in logs.items():  # merge log information into message
-                        message += '{:s}: {:.3e} '.format(k, v)
-                    logger.info(message)
+                    message += '{:s}: {:.3e} '.format(k, v)
+                logger.info(message)
 
             # -------------------------------
-            # 5) save model
+            # 4) save model
             # -------------------------------
             if current_step % opt['train']['checkpoint_save'] == 0 and opt['rank'] == 0:
                 logger.info('Saving the model.')
                 model.save(current_step)
 
             # -------------------------------
-            # 6) testing
+            # 5) update learning rate
             # -------------------------------
-            if current_step % opt['train']['checkpoint_test'] == 0 and opt['rank'] == 0:
+            model.update_learning_rate()
+
+            # -------------------------------
+            # 6) validating
+            # -------------------------------
+            if current_step % opt['train']['checkpoint_valid'] == 0 and opt['rank'] == 0:
 
                 avg_psnr = 0.0
                 idx = 0
 
-                for test_data in test_loader:
+                for valid_data in valid_loader:
                     idx += 1
-                    image_name_ext = os.path.basename(test_data['L_path'][0])
+                    image_name_ext = os.path.basename(valid_data['L_path'][0])
                     img_name, ext = os.path.splitext(image_name_ext)
 
                     img_dir = os.path.join(opt['path']['images'], img_name)
                     util.mkdir(img_dir)
 
-                    model.feed_data(test_data)
-                    model.test()
+                    model.feed_data(valid_data)
+                    model.valid()
 
                     visuals = model.current_visuals()
                     E_img = util.tensor2uint(visuals['E'])
@@ -243,11 +255,9 @@ def main(json_path='options/option.json'):
 
                 avg_psnr = avg_psnr / idx
 
-                # testing log
-                if tflog:
-                    writer.add_scalar('Average PSNR', avg_psnr, epoch + 1)
-                else:
-                    logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+                # validating log
+                writer.add_scalar('Average PSNR', avg_psnr, epoch + 1)
+                logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
     writer.close()
 
 if __name__ == '__main__':

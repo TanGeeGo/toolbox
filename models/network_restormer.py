@@ -11,7 +11,7 @@ import numbers
 
 from einops import rearrange
 
-
+from torchstat import stat # complexity evaluation
 
 ##########################################################################
 ## Layer Norm
@@ -283,3 +283,10 @@ class Restormer(nn.Module):
 
         return out_dec_level1
 
+def get_parameter_number(model, input_size=(3, 224, 224)):
+    stat(model, input_size)
+
+if __name__ == '__main__':
+    model = Restormer()
+    get_parameter_number(model)
+    

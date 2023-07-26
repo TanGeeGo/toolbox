@@ -57,12 +57,12 @@ class ModelBase():
     def current_losses(self):
         pass
 
-    def update_learning_rate(self, n):
+    def update_learning_rate(self):
         for scheduler in self.schedulers:
-            scheduler.step(n)
+            scheduler.step()
 
     def current_learning_rate(self):
-        return self.schedulers[0].get_lr()[0]
+        return self.schedulers[0].get_last_lr()[0]
 
     def requires_grad(self, model, flag=True):
         for p in model.parameters():

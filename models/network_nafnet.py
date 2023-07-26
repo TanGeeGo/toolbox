@@ -19,7 +19,7 @@ import numpy as np
 import torch.nn.functional as F
 # from basicsr.models.archs.arch_util import LayerNorm2d
 # from basicsr.models.archs.local_arch import Local_Base
-
+from torchstat import stat # complexity evaluation
 
 class LayerNormFunction(torch.autograd.Function):
     
@@ -301,6 +301,8 @@ class NAFNetLocal(Local_Base, NAFNet):
         with torch.no_grad():
             self.convert(base_size=base_size, train_size=train_size, fast_imp=fast_imp)
 
+def get_parameter_number(model, input_size=(3, 224, 224)):
+    stat(model, input_size)
 
 if __name__ == '__main__':
     img_channel = 3
@@ -320,11 +322,13 @@ if __name__ == '__main__':
 
     inp_shape = (3, 256, 256)
 
-    from ptflops import get_model_complexity_info
+    # from ptflops import get_model_complexity_info
 
-    macs, params = get_model_complexity_info(net, inp_shape, verbose=False, print_per_layer_stat=False)
+    # macs, params = get_model_complexity_info(net, inp_shape, verbose=False, print_per_layer_stat=False)
 
-    params = float(params[:-3])
-    macs = float(macs[:-4])
+    # params = float(params[:-3])
+    # macs = float(macs[:-4])
 
-    print(macs, params)
+    # print(macs, params)
+
+    get_parameter_number(net, inp_shape)

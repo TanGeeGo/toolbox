@@ -1,0 +1,83 @@
+{
+    "task": "test_mimounet_20230724"  //  root/task/images-models-options
+    , "model": "plain_multiout" // "plain" | plain_multiout
+    , "gpu_ids": [3]
+  
+    , "scale": 1       // broadcast to "netG" if SISR
+    , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
+  
+    , "path": {
+      "root": "results/deblurring"           // "denoising" | "superresolution"
+      , "pretrained_netG": null             // path of pretrained model
+    }
+  
+    , "datasets": {
+      "train": {
+        "name": "train_dataset"           // just name
+        , "dataset_type": "plain"         // "dncnn" | "dnpatch" for dncnn,  | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch"
+        , "dataroot_H": "/data1/Motion_Deblurring/GoPro/train/target_crops" // path of High-quality training dataset
+        , "dataroot_L": "/data1/Motion_Deblurring/GoPro/train/input_crops" // path of Low-quality training dataset
+        , "H_size": 224                    // patch size 40 | 64 | 96 | 128 | 192 | 224 | 256
+  
+        , "sigma": 25                     // unused
+        , "sigma_test": 25                // unused
+  
+        , "dataloader_shuffle": true
+        , "dataloader_num_workers": 8
+        , "dataloader_batch_size": 32     // batch size 1 | 16 | 32 | 48 | 64 | 128
+      }
+      , "test": {
+        "name": "test_dataset"            // just name
+        , "dataset_type": "plain"         // "dncnn" | "dnpatch" for dncnn,  | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch"
+        , "dataroot_H": "/data1/Motion_Deblurring/GoPro/val/target_crops" // path of High-quality testing dataset
+        , "dataroot_L": "/data1/Motion_Deblurring/GoPro/val/input_crops" // path of Low-quality testing dataset
+  
+        , "sigma": 25                     // unused
+        , "sigma_test": 25                // unused
+
+        , "dataloader_num_workers": 8
+        , "dataloader_batch_size": 16     // batch size 1 | 16 | 32 | 48 | 64 | 128
+  
+      }
+    }
+  
+    , "netG": {
+      "net_type": "mimounet" // "dncnn" | "fdncnn" | "ffdnet" | "srmd" | "dpsr" | "msrresnet0" |  "msrresnet1" | "rrdb" 
+      , "in_nc": 3        // input channel number
+      , "out_nc": 3       // ouput channel number
+      , "nc": 32          // 96 for "dpsr", 128 for "srmd", 64 for "dncnn" and "rrdb"
+      , "nb": 8           // 23 for "rrdb", 12 for "srmd", 15 for "ffdnet", 20 for "dncnn", 16 for "srresnet" and "dpsr"
+      , "gc": 32          // unused
+      , "ng": 2           // unused
+      , "reduction" : 16  // unused
+      , "act_mode": "R"   // unused "BR" for BN+ReLU | "R" for ReLU
+      , "upsample_mode": "upconv"  // unused "pixelshuffle" | "convtranspose" | "upconv"
+      , "downsample_mode": "strideconv"   // unused "strideconv" | "avgpool" | "maxpool"
+  
+      , "init_type": "orthogonal"         // unused "orthogonal" | "normal" | "uniform" | "xavier_normal" | "xavier_uniform" | "kaiming_normal" | "kaiming_uniform"
+      , "init_bn_type": "uniform"         // unused "uniform" | "constant"
+      , "init_gain": 0.2
+    }
+  
+    , "train": {
+      "total_epoch": 300000
+      ,"G_lossfn_type": "l1+fft"               // "l1" preferred | "l2sum" | "l2" | "ssim" 
+      , "G_lossfn_weight": [1.0, 0.1]            // default
+  
+      , "G_optimizer_type": "adam"        // fixed, adam is enough
+      , "G_optimizer_lr": 1e-4            // learning rate
+      , "G_optimizer_clipgrad": null      // unused
+  
+      , "G_scheduler_type": "MultiStepLR" // "MultiStepLR" is enough
+      , "G_scheduler_milestones": [20000, 40000, 60000, 80000, 100000, 200000]
+      , "G_scheduler_gamma": 0.5
+  
+      , "G_regularizer_orthstep": null    // unused
+      , "G_regularizer_clipstep": null    // unused
+  
+      , "checkpoint_test": 5000           // for testing
+      , "checkpoint_save": 5000           // for saving model
+      , "checkpoint_print": 200           // for print
+    }
+  }
+  
