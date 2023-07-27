@@ -490,7 +490,7 @@ class WindowAttention(nn.Module):
         # get pair-wise relative position index for each token inside the window
         coords_h = torch.arange(self.win_size[0]) # [0,...,Wh-1]
         coords_w = torch.arange(self.win_size[1]) # [0,...,Ww-1]
-        coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
+        coords = torch.stack(torch.meshgrid([coords_h, coords_w], indexing='ij'))  # 2, Wh, Ww
         coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
         relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
         relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
@@ -1361,13 +1361,17 @@ if __name__ == "__main__":
     model_restoration = Uformer(img_size=input_size, embed_dim=16,depths=depths,
                  win_size=8, mlp_ratio=4., token_projection='linear', token_mlp='leff', modulator=True, shift_flag=False)
     print(model_restoration)
-    # from ptflops import get_model_complexity_info
-    # macs, params = get_model_complexity_info(model_restoration, (3, input_size, input_size), as_strings=True,
-    #                                             print_per_layer_stat=True, verbose=True)
-    # print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
-    # print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+    from ptflops import get_model_complexity_info
+    macs, params = get_model_complexity_info(model_restoration, (3, input_size, input_size), as_strings=True,
+                                                print_per_layer_stat=True, verbose=True)
+    print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
-    get_parameter_number(model_restoration)
+    # get_parameter_number(model_restoration)
 
     print('# model_restoration parameters: %.2f M'%(sum(param.numel() for param in model_restoration.parameters())/ 1e6))
     print("number of GFLOPs: %.2f G"%(model_restoration.flops() / 1e9))
+
+    img = torch.randn(1, 3, input_size, input_size)
+    out = model_restoration(img)
+    print(out.shape)

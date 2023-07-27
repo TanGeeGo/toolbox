@@ -31,7 +31,7 @@
         , "dataset_type": "plain"         // "dncnn" | "dnpatch" for dncnn,  | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch"
         , "dataroot_H": "/data1/Motion_Deblurring/GoPro/val/target_crops" // path of High-quality testing dataset
         , "dataroot_L": "/data1/Motion_Deblurring/GoPro/val/input_crops" // path of Low-quality testing dataset
-  
+        
         , "sigma": 25                     // unused
         , "sigma_valid": 25               // unused
 

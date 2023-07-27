@@ -31,7 +31,8 @@
         , "dataset_type": "plain"         // "dncnn" | "dnpatch" for dncnn,  | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch"
         , "dataroot_H": "./testsets/testH" // path of High-quality testing dataset
         , "dataroot_L": "./testsets/testL" // path of Low-quality testing dataset
-  
+        , "H_size": 256                     // patch size 40 | 64 | 96 | 128 | 192 | 224 | 256 | 384
+        
         , "sigma": 25                     // 15, 25, 50 for DnCNN | [0, 75] for FFDNet and FDnCNN
         , "sigma_test": 25                // 15, 25, 50 for DnCNN and ffdnet
   

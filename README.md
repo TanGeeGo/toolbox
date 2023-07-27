@@ -85,7 +85,7 @@ pip install -r requirements.txt
     # 在项目根目录下直接运行训练脚本
     $ cd toolbox
     $ python main_train_sample.py --opt options/option_xxxxx.json --dist False (单卡训练)
-    $ torchrun ----nproc_per_node=${GPU_NUMs}  main_train_sample.py --opt options/option_xxxxx.json --dist True (多卡训练，注意此时option文件中的gpu_ids必须为list，例如：[0, 1, 2, 3])
+    $ torchrun --nproc_per_node=${GPU_NUMs} main_train_sample.py --opt options/option_xxxxx.json --dist True (多卡训练，注意此时option文件中的gpu_ids必须为list，例如：[0, 1, 2, 3])
 
 ### 测试模型
     # 在项目根目录下直接运行训练脚本

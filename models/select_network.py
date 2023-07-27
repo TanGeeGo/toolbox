@@ -111,16 +111,21 @@ def define_G(opt):
     # ----------------------------------------
     elif net_type == 'uformer':
         from models.network_uformer import Uformer as net
-        netG = net( dd_in=opt_net['in_nc'],
-                        in_chans=opt_net['out_nc'])
+        netG = net(in_chans=opt_net['in_nc'],
+                   dd_in=opt_net['in_nc'],
+                   embed_dim=opt_net['nc'], 
+                   depths=opt_net['nb'],
+                   token_projection='linear',
+                   token_mlp=opt_net['token_mlp'],
+                   modulator=True)
                
     # ----------------------------------------
     # vapsr
     # ----------------------------------------
     elif net_type == 'vapsr':
         from models.network_vapsr import vapsr as net
-        netG = net( num_in_ch=opt_net['in_nc'], 
-                      num_out_ch=opt_net['out_nc'])
+        netG = net(num_in_ch=opt_net['in_nc'], 
+                   num_out_ch=opt_net['out_nc'])
 
     # ----------------------------------------
     # others

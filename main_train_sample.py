@@ -154,7 +154,7 @@ def main(json_path='options/option.json'):
         print('Training model [{:s}] is created.'.format(model.__class__.__name__))
         if opt['netG']['init_type'] not in ['default', 'none']:
             print('Initialization method [{:s} + {:s}], gain is [{:.2f}]'.format(\
-                opt['netG']['init_type'],  opt['netG']['init_bn_type'],  opt['netG']['gain']))
+                opt['netG']['init_type'],  opt['netG']['init_bn_type'],  opt['netG']['init_gain']))
         else:
             print('Pass this initialization! Initialization was done during network definition!')
             

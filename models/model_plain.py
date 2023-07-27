@@ -7,7 +7,7 @@ from torch.optim import Adam, AdamW
 from models.select_network import define_G
 from models.model_base import ModelBase
 from models._loss import CharbonnierLoss, SSIMLoss
-from models._lr_scheduler import MultiStepRestartLR, CosineAnnealingRestartLR, CosineAnnealingRestartCyclicLR
+from models._lr_scheduler import MultiStepRestartLR, CosineAnnealingRestartLR, CosineAnnealingRestartCyclicLR, GradualWarmupScheduler
 
 from utils.utils_model import test_mode
 from utils.utils_regularizers import regularizer_orth, regularizer_clip
@@ -170,6 +170,14 @@ class ModelPlain(ModelBase):
                                                             restart_weights=self.opt_train['G_scheduler_restart_weights'],
                                                             eta_mins=self.opt_train['G_scheduler_eta_mins']
                                                             ))
+        elif self.opt_train['G_scheduler_type'] == 'GradualWarmupScheduler':
+            scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.G_optimizer, 
+                                                                          self.opt_train['total_epoch']-self.opt_train['G_scheduler_warmup_epochs'], 
+                                                                          eta_min=1e-6)
+            self.schedulers.append(GradualWarmupScheduler(self.G_optimizer, 
+                                                          multiplier=self.opt_train['G_scheduler_multiplier'],
+                                                          total_epoch=self.opt_train['G_scheduler_warmup_epochs'], 
+                                                          after_scheduler=scheduler_cosine))
         else:
             raise NotImplementedError
 
