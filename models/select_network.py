@@ -87,7 +87,21 @@ def define_G(opt):
     # ----------------------------------------
     elif net_type == 'nafnet':
         from models.network_nafnet import NAFNet as net
-        netG = net(img_channel=opt_net['in_nc'] )
+        netG = net(img_channel=opt_net['in_nc'],
+                   width=opt_net['nc'],
+                   middle_blk_num=1,
+                   enc_blk_nums=opt_net['enc_blk_nums'],
+                   dec_blk_nums=opt_net['dec_blk_nums']
+                   )
+    elif net_type == 'nafnetlocal':
+        from models.network_nafnet import NAFNetLocal as net
+        netG = net(img_channel=opt_net['in_nc'],
+                   width=opt_net['nc'],
+                   middle_blk_num=1,
+                   enc_blk_nums=opt_net['enc_blk_nums'],
+                   dec_blk_nums=opt_net['dec_blk_nums'],
+                   train_size=(1, 3, opt['datasets']['train']['H_size'], opt['datasets']['train']['H_size'])
+                   )
 
     # ----------------------------------------
     # Restormer

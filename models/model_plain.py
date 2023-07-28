@@ -6,7 +6,7 @@ from torch.optim import Adam, AdamW
 
 from models.select_network import define_G
 from models.model_base import ModelBase
-from models._loss import CharbonnierLoss, SSIMLoss
+from models._loss import CharbonnierLoss, SSIMLoss, FFTLoss, PSNRLoss
 from models._lr_scheduler import MultiStepRestartLR, CosineAnnealingRestartLR, CosineAnnealingRestartCyclicLR, GradualWarmupScheduler
 
 from utils.utils_model import test_mode
@@ -110,6 +110,8 @@ class ModelPlain(ModelBase):
                 self.G_lossfn = nn.MSELoss(reduction='sum').to(self.device)
             elif G_lossfn_type == 'ssim':
                 self.G_lossfn = SSIMLoss().to(self.device)
+            elif G_lossfn_type == 'psnr':
+                self.G_lossfn = PSNRLoss().to(self.device)
             elif G_lossfn_type == 'charbonnier':
                 self.G_lossfn = CharbonnierLoss(self.opt_train['G_charbonnier_eps']).to(self.device)
             else:
@@ -120,7 +122,7 @@ class ModelPlain(ModelBase):
                 self.G_lossfn_aux = SSIMLoss().to(self.device)
             elif G_lossfn_type == 'l1+fft':
                 self.G_lossfn = nn.L1Loss().to(self.device)
-                self.G_lossfn_aux = nn.L1Loss().to(self.device)
+                self.G_lossfn_aux = FFTLoss().to(self.device)
 
         self.G_lossfn_weight = self.opt_train['G_lossfn_weight']
         if len(self.G_lossfn_type_) > 1:
@@ -173,11 +175,18 @@ class ModelPlain(ModelBase):
         elif self.opt_train['G_scheduler_type'] == 'GradualWarmupScheduler':
             scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.G_optimizer, 
                                                                           self.opt_train['total_epoch']-self.opt_train['G_scheduler_warmup_epochs'], 
-                                                                          eta_min=1e-6)
+                                                                          eta_min=self.opt_train['G_scheduler_eta_min']
+                                                                          )
             self.schedulers.append(GradualWarmupScheduler(self.G_optimizer, 
                                                           multiplier=self.opt_train['G_scheduler_multiplier'],
                                                           total_epoch=self.opt_train['G_scheduler_warmup_epochs'], 
-                                                          after_scheduler=scheduler_cosine))
+                                                          after_scheduler=scheduler_cosine
+                                                          ))
+        elif self.opt_train['G_scheduler_type'] == 'CosineAnnealingLR':
+            self.schedulers.append(torch.optim.lr_scheduler.CosineAnnealingLR(self.G_optimizer,
+                                                                              T_max=self.opt_train['total_epoch'],
+                                                                              eta_min=self.opt_train['G_scheduler_eta_min']
+                                                                              ))
         else:
             raise NotImplementedError
 
@@ -211,12 +220,8 @@ class ModelPlain(ModelBase):
         if len(self.G_lossfn_weight) == 1:
             G_loss = self.G_lossfn_weight[0] * self.G_lossfn(self.E, self.H)
         elif len(self.G_lossfn_weight) == 2:
-            if 'fft' in self.G_lossfn_type_:
-                G_loss = self.G_lossfn_weight[0] * self.G_lossfn(self.E, self.H) + \
-                    self.G_lossfn_weight[1] * self.G_lossfn_aux(torch.fft.rfft2(self.E), torch.fft.rfft2(self.H))
-            else:
-                G_loss = self.G_lossfn_weight[0] * self.G_lossfn(self.E, self.H) + \
-                    self.G_lossfn_weight[1] * self.G_lossfn_aux(self.E, self.H)
+            G_loss = self.G_lossfn_weight[0] * self.G_lossfn(self.E, self.H) + \
+                self.G_lossfn_weight[1] * self.G_lossfn_aux(self.E, self.H)
 
         G_loss.backward()
 

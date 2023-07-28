@@ -9,6 +9,7 @@
 
 🚩 **更新内容（New Features/Updates）**
 
+- ✅ July 28, 2023. 加入uformer，nafnet，fftformer等复原模型的官方部署配置
 - ✅ July 26, 2023. 增加多卡训练，加入mimounet，restormer等复原模型的官方部署配置
 
 ## Toolbox功能介绍（Introduction）
@@ -85,7 +86,10 @@ pip install -r requirements.txt
     # 在项目根目录下直接运行训练脚本
     $ cd toolbox
     $ python main_train_sample.py --opt options/option_xxxxx.json --dist False (单卡训练)
-    $ torchrun --nproc_per_node=${GPU_NUMs} main_train_sample.py --opt options/option_xxxxx.json --dist True (多卡训练，注意此时option文件中的gpu_ids必须为list，例如：[0, 1, 2, 3])
+    # pytorch2.0.0版本以后的多卡训练，注意此时option文件中的gpu_ids必须为list，例如：[0, 1, 2, 3]
+    $ torchrun --nproc_per_node=${GPU_NUMs} main_train_sample.py --opt options/option_xxxxx.json --dist True
+    # pytorch2.0.0版本以前的多卡训练，注意此时option文件中的gpu_ids必须为list，例如：[0, 1, 2, 3]
+    $ python -m torch.distributed.launch --nproc_per_node=8 --master_port=4321 main_train_sample.py --opt options/option_xxxxx.json --dist True
 
 ### 测试模型
     # 在项目根目录下直接运行训练脚本

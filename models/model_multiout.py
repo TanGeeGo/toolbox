@@ -46,12 +46,8 @@ class ModelMultiout(ModelPlain):
                 G_loss_list.append(G_loss_item)
         elif len(self.G_lossfn_weight) == 2:
             for item in range(len(self.E)):
-                if 'fft' in self.G_lossfn_type_:
-                    G_loss_item = self.G_lossfn_weight[0] * self.G_lossfn(self.E[item], self.H[item]) + \
-                        self.G_lossfn_weight[1] * self.G_lossfn_aux(torch.fft.rfft2(self.E[item]), torch.fft.rfft2(self.H[item]))
-                else:
-                    G_loss_item = self.G_lossfn_weight[0] * self.G_lossfn(self.E[item], self.H[item]) + \
-                        self.G_lossfn_weight[1] * self.G_lossfn_aux(self.E[item], self.H[item])
+                G_loss_item = self.G_lossfn_weight[0] * self.G_lossfn(self.E[item], self.H[item]) + \
+                    self.G_lossfn_weight[1] * self.G_lossfn_aux(self.E[item], self.H[item])
                 G_loss_list.append(G_loss_item)
         G_loss = sum(G_loss_list)
         G_loss.backward()

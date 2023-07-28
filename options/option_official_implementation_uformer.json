@@ -87,7 +87,7 @@
       , "G_scheduler_milestones": [5000, 10000, 20000, 25000, 30000]      // for "MultiStepLR"
       , "G_scheduler_gamma": 0.5                                          // for "MultiStepLR"
       , "G_scheduler_period": 5000                                        // for "CosineAnnealingWarmRestarts"
-      , "G_scheduler_eta_min": 0.000001                                   // for "CosineAnnealingWarmRestarts"
+      , "G_scheduler_eta_min": 1e-6                                       // for "CosineAnnealingWarmRestarts"
       , "G_scheduler_periods": [9200, 20800]                              // for "CosineAnnealingRestartCyclicLR"
       , "G_scheduler_restart_weights": [1, 1]                             // for "CosineAnnealingRestartCyclicLR"
       , "G_scheduler_eta_mins": [0.0003,0.000001]                         // for "CosineAnnealingRestartCyclicLR"

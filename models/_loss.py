@@ -2,52 +2,118 @@ import math
 import torch
 import torch.nn as nn
 import torchvision
+import functools
+import numpy as np
 from torch.nn import functional as F
 from torch import autograd as autograd
 from torch.autograd import Variable
 
-"""
-Sequential(
-      (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (1): ReLU(inplace)
-      (2*): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (3): ReLU(inplace)
-      (4): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
-      (5): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (6): ReLU(inplace)
-      (7*): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (8): ReLU(inplace)
-      (9): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
-      (10): Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (11): ReLU(inplace)
-      (12): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (13): ReLU(inplace)
-      (14): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (15): ReLU(inplace)
-      (16*): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (17): ReLU(inplace)
-      (18): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
-      (19): Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (20): ReLU(inplace)
-      (21): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (22): ReLU(inplace)
-      (23): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (24): ReLU(inplace)
-      (25*): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)) 
-      (26): ReLU(inplace)
-      (27): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
-      (28): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (29): ReLU(inplace)
-      (30): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (31): ReLU(inplace)
-      (32): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (33): ReLU(inplace)
-      (34*): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
-      (35): ReLU(inplace)
-      (36): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
-)
-"""
+# --------------------------------------------
+# Loss utils
+# --------------------------------------------
+def reduce_loss(loss, reduction):
+    """Reduce loss as specified.
 
+    Args:
+        loss (Tensor): Elementwise loss tensor.
+        reduction (str): Options are 'none', 'mean' and 'sum'.
+
+    Returns:
+        Tensor: Reduced loss tensor.
+    """
+    reduction_enum = F._Reduction.get_enum(reduction)
+    # none: 0, elementwise_mean:1, sum: 2
+    if reduction_enum == 0:
+        return loss
+    elif reduction_enum == 1:
+        return loss.mean()
+    else:
+        return loss.sum()
+
+
+def weight_reduce_loss(loss, weight=None, reduction='mean'):
+    """Apply element-wise weight and reduce loss.
+
+    Args:
+        loss (Tensor): Element-wise loss.
+        weight (Tensor): Element-wise weights. Default: None.
+        reduction (str): Same as built-in losses of PyTorch. Options are
+            'none', 'mean' and 'sum'. Default: 'mean'.
+
+    Returns:
+        Tensor: Loss values.
+    """
+    # if weight is specified, apply element-wise weight
+    if weight is not None:
+        assert weight.dim() == loss.dim()
+        assert weight.size(1) == 1 or weight.size(1) == loss.size(1)
+        loss = loss * weight
+
+    # if weight is not specified or reduction is sum, just reduce the loss
+    if weight is None or reduction == 'sum':
+        loss = reduce_loss(loss, reduction)
+    # if reduction is mean, then compute mean over weight region
+    elif reduction == 'mean':
+        if weight.size(1) > 1:
+            weight = weight.sum()
+        else:
+            weight = weight.sum() * loss.size(1)
+        loss = loss.sum() / weight
+
+    return loss
+
+
+def weighted_loss(loss_func):
+    """Create a weighted version of a given loss function.
+
+    To use this decorator, the loss function must have the signature like
+    `loss_func(pred, target, **kwargs)`. The function only needs to compute
+    element-wise loss without any reduction. This decorator will add weight
+    and reduction arguments to the function. The decorated function will have
+    the signature like `loss_func(pred, target, weight=None, reduction='mean',
+    **kwargs)`.
+
+    :Example:
+
+    >>> import torch
+    >>> @weighted_loss
+    >>> def l1_loss(pred, target):
+    >>>     return (pred - target).abs()
+
+    >>> pred = torch.Tensor([0, 2, 3])
+    >>> target = torch.Tensor([1, 1, 1])
+    >>> weight = torch.Tensor([1, 0, 1])
+
+    >>> l1_loss(pred, target)
+    tensor(1.3333)
+    >>> l1_loss(pred, target, weight)
+    tensor(1.5000)
+    >>> l1_loss(pred, target, reduction='none')
+    tensor([1., 1., 2.])
+    >>> l1_loss(pred, target, weight, reduction='sum')
+    tensor(3.)
+    """
+
+    @functools.wraps(loss_func)
+    def wrapper(pred, target, weight=None, reduction='mean', **kwargs):
+        # get element-wise loss
+        loss = loss_func(pred, target, **kwargs)
+        loss = weight_reduce_loss(loss, weight, reduction)
+        return loss
+
+    return wrapper
+
+_reduction_modes = ['none', 'mean', 'sum']
+
+
+@weighted_loss
+def l1_loss(pred, target):
+    return F.l1_loss(pred, target, reduction='none')
+
+
+@weighted_loss
+def mse_loss(pred, target):
+    return F.mse_loss(pred, target, reduction='none')
 
 # --------------------------------------------
 # Perceptual loss
@@ -360,3 +426,103 @@ def ssim(img1, img2, window_size=11, size_average=True):
     window = window.type_as(img1)
     
     return _ssim(img1, img2, window, window_size, channel, size_average)
+
+# --------------------------------------------
+# PSNR loss
+# https://github.com/megvii-research/NAFNet/blob/main/basicsr/models/losses/losses.py
+# --------------------------------------------
+
+class PSNRLoss(nn.Module):
+    """
+    torch.log((pred - target) ** 2) will be negative in calculation,
+    if you conbine this psnrloss with other loss, the loss weight needs to be negative
+    """
+    def __init__(self, loss_weight=-1.0, reduction='mean', toY=False):
+        super(PSNRLoss, self).__init__()
+        assert reduction == 'mean'
+        self.loss_weight = loss_weight
+        self.scale = 10 / np.log(10)
+        self.toY = toY
+        self.coef = torch.tensor([65.481, 128.553, 24.966]).reshape(1, 3, 1, 1)
+        self.first = True
+
+    def forward(self, pred, target):
+        assert len(pred.size()) == 4
+        if self.toY:
+            if self.first:
+                self.coef = self.coef.to(pred.device)
+                self.first = False
+
+            pred = (pred * self.coef).sum(dim=1).unsqueeze(dim=1) + 16.
+            target = (target * self.coef).sum(dim=1).unsqueeze(dim=1) + 16.
+
+            pred, target = pred / 255., target / 255.
+            pass
+        assert len(pred.size()) == 4
+
+        return self.loss_weight * self.scale * torch.log(((pred - target) ** 2).mean(dim=(1, 2, 3)) + 1e-8).mean()
+
+# --------------------------------------------
+# FFT loss
+# --------------------------------------------
+
+class FFTLoss(nn.Module):
+    """L1 loss in frequency domain with FFT.
+
+    Args:
+        loss_weight (float): Loss weight for FFT loss. Default: 1.0.
+        reduction (str): Specifies the reduction to apply to the output.
+            Supported choices are 'none' | 'mean' | 'sum'. Default: 'mean'.
+    """
+
+    def __init__(self, loss_weight=1.0, reduction='mean'):
+        super(FFTLoss, self).__init__()
+        
+        self.loss_weight = loss_weight
+        self.reduction = reduction
+
+    def forward(self, pred, target, weight=None, **kwargs):
+        """
+        Args:
+            pred (Tensor): of shape (..., C, H, W). Predicted tensor.
+            target (Tensor): of shape (..., C, H, W). Ground truth tensor.
+            weight (Tensor, optional): of shape (..., C, H, W). Element-wise
+                weights. Default: None.
+        """
+
+        pred_fft = torch.fft.fft2(pred, dim=(-2, -1))
+        pred_fft = torch.stack([pred_fft.real, pred_fft.imag], dim=-1)
+        target_fft = torch.fft.fft2(target, dim=(-2, -1))
+        target_fft = torch.stack([target_fft.real, target_fft.imag], dim=-1)
+        return self.loss_weight * l1_loss(pred_fft, target_fft, weight, reduction=self.reduction)
+
+# --------------------------------------------
+# Edge loss
+# --------------------------------------------
+
+class EdgeLoss(nn.Module):
+    def __init__(self,loss_weight=1.0, reduction='mean'):
+        super(EdgeLoss, self).__init__()
+        k = torch.Tensor([[.05, .25, .4, .25, .05]])
+        self.kernel = torch.matmul(k.t(),k).unsqueeze(0).repeat(3,1,1,1).cuda() 
+
+
+        self.weight = loss_weight
+        
+    def conv_gauss(self, img):
+        n_channels, _, kw, kh = self.kernel.shape
+        img = F.pad(img, (kw//2, kh//2, kw//2, kh//2), mode='replicate')
+        return F.conv2d(img, self.kernel, groups=n_channels)
+
+    def laplacian_kernel(self, current):
+        filtered    = self.conv_gauss(current)
+        down        = filtered[:,:,::2,::2]
+        new_filter  = torch.zeros_like(filtered)
+        new_filter[:,:,::2,::2] = down*4
+        filtered    = self.conv_gauss(new_filter)
+        diff = current - filtered
+        return diff
+
+    def forward(self, x, y,weight=None, **kwargs):
+        loss = l1_loss(self.laplacian_kernel(x), self.laplacian_kernel(y))
+        return loss*self.weight
