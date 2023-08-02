@@ -9,6 +9,7 @@ from torchvision.utils import make_grid
 from datetime import datetime
 # import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
+import scipy.io as scio
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 """
@@ -17,7 +18,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 # ----------------------------------------------------
 """
 
-IMG_EXTENSIONS = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP', '.tif']
+IMG_EXTENSIONS = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP', '.tif', '.tiff', '.mat']
 def is_image_file(filename):
     return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)
 
@@ -179,7 +180,7 @@ def mkdir_and_rename(path):
 # get uint8 image of size HxWxn_channles (RGB)
 # --------------------------------------------
 def imread_uint(path, n_channels=3):
-    #  input: path
+    # input: path
     # output: HxWx3(RGB or GGG), or HxWx1 (G)
     if n_channels == 1:
         img = cv2.imread(path, 0)  # cv2.IMREAD_GRAYSCALE
@@ -190,6 +191,17 @@ def imread_uint(path, n_channels=3):
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)  # GGG
         else:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # RGB
+    return img
+
+# --------------------------------------------
+# get float image of size HxWxn_channles (RGB) from mat files
+# --------------------------------------------
+def imread_mat(path, key='lr', n_channels=3):
+    # input: path
+    # output: HxWx3(RGB or GGG), or HxWx1 (G)
+    img = scio.loadmat(path)
+    img = img[key]
+    assert img.shape[2] == n_channels, 'Error: channel does not match!'
     return img
 
 

@@ -1,0 +1,138 @@
+{
+    "task": "official_implementation_of_fsanet"  //  root/task/images-models-options
+    , "model": "multiin"                        // "plain" | "multiout" | "progressive" | "multiin"
+    , "gpu_ids": [3]
+  
+    , "scale": 1       // broadcast to "netG" if SISR
+    , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
+  
+    , "path": {
+      "root": "results/aberration_correction" // "denoising" | "superresolution" | "deblurring"
+      , "pretrained_netG": null               // path of pretrained model
+    }
+  
+    , "datasets": {
+      "train": {
+        "name": "train_dataset"             // just name
+        , "dataset_type": "multiin"         // "plain" | "multimodal" | "multiin"
+        , "dataroot_H": "/data1/Aberration_Correction/train/target_crops" // path of High-quality training dataset (prefered full path)
+        , "dataroot_L": "/data1/Aberration_Correction/train/input_crops" // path of Low-quality training dataset (prefered full path)
+        , "H_size": 200                     // patch size 40 | 64 | 96 | 128 | 192 | 224 | 256 | 384
+  
+        , "dataloader_shuffle": true
+        , "dataloader_num_workers": 8
+        , "dataloader_batch_size": 8        // batch size 1 | 8 | 16 | 32 | 48 | 64 | 128
+
+        // hyper-parameters for progressive training
+        , "mini_batch_sizes": [8, 5, 4, 2, 1, 1] // mini batch size for progressive training
+        , "iters_milestones": [92000, 64000, 48000, 36000, 36000, 24000] // milestone of iteration for progressive training
+        , "mini_H_sizes" : [128, 160, 192, 256, 320, 384] // varing H_size for progressive training
+        
+        // hyper-parameters for fsanet
+        , "dataroot_K": "/data1/Aberration_Correction/kernels" // path of the kernels
+        , "kr_num": 30                   // kernel number of fsanet
+        , "eptional_name": "gauss_fit"   // basis to fit the SNR in weiner filter
+        , "en_size": 75                  // encode size of the eptional, higher for higher frequency but larger computation
+        , "sig_low": 0.2                 // eptional fitted by gaussian,the lower boundary
+        , "sig_high": 2.5                // eptional fitted by gaussian,the upper boundary
+        , "sig_num": 29                  // number of gaussian basis
+      }
+      , "valid": {
+        "name": "valid_dataset"           // just name
+        , "dataset_type": "multiin"         // "plain" | "multimodal" | "multiin"
+        , "dataroot_H": "/data1/Aberration_Correction/val/target_crops" // path of High-quality testing dataset (prefered full path)
+        , "dataroot_L": "/data1/Aberration_Correction/val/input_crops" // path of Low-quality testing dataset (prefered full path)
+        
+        , "sigma": 25                     // unused
+        , "sigma_valid": 25               // unused
+
+        , "dataloader_num_workers": 8
+        , "dataloader_batch_size": 8      // batch size 1 | 8 | 16 | 32 | 48 | 64 | 128
+
+        // hyper-parameters for fsanet
+        , "dataroot_K": "/data1/Aberration_Correction/kernels" // path of the kernels
+        , "kr_num": 30                   // kernel number of fsanet
+        , "eptional_name": "gauss_fit"   // basis to fit the SNR in weiner filter
+        , "en_size": 75                  // encode size of the eptional, higher for higher frequency but larger computation
+        , "sig_low": 0.2                 // eptional fitted by gaussian,the lower boundary
+        , "sig_high": 2.5                // eptional fitted by gaussian,the upper boundary
+        , "sig_num": 29                  // number of gaussian basis
+      }
+      , "test": {
+        "name": "test_dataset"            // unused
+        , "dataset_type": "multiin"       // dataset type
+        , "dataroot_H": "/data1/Aberration_Correction/test/target" // path of High-quality testing dataset
+        , "dataroot_L": "/data1/Aberration_Correction/test/input" // path of Low-quality testing dataset
+
+        , "sigma": 25                     // unused
+        , "sigma_valid": 25               // unused
+
+        , "dataloader_num_workers": 0
+        , "dataloader_batch_size": 1     // batch size 1
+
+        // hyper-parameters for fsanet
+        , "dataroot_K": "/data1/Aberration_Correction/kernels" // path of the kernels
+        , "kr_num": 30                   // kernel number of fsanet
+        , "eptional_name": "gauss_fit"   // basis to fit the SNR in weiner filter
+        , "en_size": 75                  // encode size of the eptional, higher for higher frequency but larger computation
+        , "sig_low": 0.2                 // eptional fitted by gaussian,the lower boundary
+        , "sig_high": 2.5                // eptional fitted by gaussian,the upper boundary
+        , "sig_num": 29                  // number of gaussian basis
+      }
+    }
+  
+    , "netG": {
+      "net_type": "fsanet"           // "mimounet" | "mimounetplus" | "restormer" | "uformer" | "nafnet"("nafnet local" for test) | "fftformer" | "fsanet"
+      , "in_nc": 5                   // input channel number
+      , "out_nc": 3                  // ouput channel number
+      , "nc": 48                     // basic hidden dim or base channel and 16 for uformer_tiny
+      , "nb": [6, 6, 12]             // number of blocks (list if different scales)
+      , "n_refine_b": 4              // number of refinement blocks
+      , "heads": [1, 2, 4, 8]        // heads of multi-head attention
+      , "ffn_expansion_factor": 3    // hidden dim expanded in Gated-Dconv Network
+      , "bias": false                // bias in qkv generation
+      , "LayerNorm_type": "WithBias" // Other option 'BiasFree'
+      , "dual_pixel_task": false     // ## True for dual-pixel defocus deblurring only. Also set inp_channels=6
+      , "token_mlp": "leff"          // token of mlp in uformer
+      , "enc_blk_nums": [1, 1, 1, 28]// encoder block number of nafnet
+      , "dec_blk_nums": [1, 1, 1, 1] // decoder block number of nafnet
+
+      , "kr_num": 30                 // kernel number of fsanet
+      , "sig_num": 30                // number of gaussian basis for fsanet
+  
+      , "init_type": "orthogonal"         // unused "orthogonal" | "normal" | "uniform" | "xavier_normal" | "xavier_uniform" | "kaiming_normal" | "kaiming_uniform"
+      , "init_bn_type": "uniform"         // unused "uniform" | "constant"
+      , "init_gain": 0.2
+    }
+  
+    , "train": {
+      "total_epoch": 3000
+      ,"G_lossfn_type": "l2+perc"                // "l1" | "l2sum" | "l2" | "ssim" | "psnr" | "charbonnier" | 'l1+ssim' | 'l1+fft' | 'l2+perc'
+      , "G_lossfn_weight": [1.0, 0.1]            // default
+  
+      , "G_optimizer_type": "adam"         // fixed, adam is enough, adamw is for transformer
+      , "G_optimizer_lr": 1e-4             // learning rate
+      , "G_optimizer_betas": [0.9, 0.999]  // beta 
+      , "G_optimizer_wd": 1e-3             // weight decay
+      , "G_optimizer_clipgrad": 0.01       // the max norm of grad for clipping (negative for unclipping)
+  
+      , "G_scheduler_type": "MultiStepLR"                                 // "MultiStepLR" | "CosineAnnealingWarmRestarts" | "CosineAnnealingRestartCyclicLR" | "GradualWarmupScheduler" | "CosineAnnealingLR"
+      , "G_scheduler_milestones": [500, 1000, 2000, 2500, 3000]           // for "MultiStepLR"
+      , "G_scheduler_gamma": 0.5                                          // for "MultiStepLR"
+      , "G_scheduler_period": 5000                                        // for "CosineAnnealingWarmRestarts"
+      , "G_scheduler_eta_min": 1e-7                                       // for "CosineAnnealingWarmRestarts"
+      , "G_scheduler_periods": [9200, 20800]                              // for "CosineAnnealingRestartCyclicLR"
+      , "G_scheduler_restart_weights": [1, 1]                             // for "CosineAnnealingRestartCyclicLR"
+      , "G_scheduler_eta_mins": [0.0003,0.000001]                         // for "CosineAnnealingRestartCyclicLR"
+      , "G_scheduler_multiplier": 1                                       // for "GradualWarmupScheduler"
+      , "G_scheduler_warmup_epochs": 3                                    // for "GradualWarmupScheduler"
+
+      , "G_regularizer_orthstep": null    // unused
+      , "G_regularizer_clipstep": null    // unused
+  
+      , "checkpoint_valid": 500           // for validating
+      , "checkpoint_save": 500            // for saving model
+      , "checkpoint_print": 20            // for print
+    }
+  }
+  

@@ -125,7 +125,7 @@ class VGGFeatureExtractor(nn.Module):
         use_input_norm: If True, x: [0, 1] --> (x - mean) / std
         use_range_norm: If True, x: [0, 1] --> x: [-1, 1]
         '''
-        model = torchvision.models.vgg19(pretrained=True)
+        model = torchvision.models.vgg19(weights=torchvision.models.VGG19_Weights.DEFAULT)
         self.use_input_norm = use_input_norm
         self.use_range_norm = use_range_norm
         if self.use_input_norm:

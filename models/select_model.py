@@ -13,6 +13,8 @@ def define_Model(opt):
         from models.model_plain import ModelPlain as M
     elif model == 'multiout':
         from models.model_multiout import ModelMultiout as M
+    elif model == 'multiin':
+        from models.model_multiin import ModelMultiin as M
     elif model == 'progressive':
         from models.model_progressive import ModelProgressive as M
     else:

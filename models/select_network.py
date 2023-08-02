@@ -111,7 +111,8 @@ def define_G(opt):
         netG = net(inp_channels=opt_net['in_nc'],
                    out_channels=opt_net['out_nc'],
                    dim=opt_net['nc'],
-                   num_blocks=opt_net['nb'])
+                   num_blocks=opt_net['nb']
+                   )
     
     # ----------------------------------------
     # Stripformer
@@ -119,9 +120,21 @@ def define_G(opt):
     elif net_type == 'stripformer':
         from models.network_stripformer import Stripformer as net
         netG = net() 
-        
+
     # ----------------------------------------
-    # Stripformer
+    # FSANet
+    # ----------------------------------------
+    elif net_type == 'fsanet':
+        from models.network_fsanet import FSANet as net
+        netG = net(input_channel=opt_net['in_nc'],
+                   output_channel=opt_net['out_nc'],
+                   base_channel=opt_net['nc'],
+                   kernel_num=opt_net['kr_num'],
+                   sig_num=opt_net['sig_num']
+                   )
+
+    # ----------------------------------------
+    # uformer
     # ----------------------------------------
     elif net_type == 'uformer':
         from models.network_uformer import Uformer as net
@@ -131,7 +144,8 @@ def define_G(opt):
                    depths=opt_net['nb'],
                    token_projection='linear',
                    token_mlp=opt_net['token_mlp'],
-                   modulator=True)
+                   modulator=True
+                   )
                
     # ----------------------------------------
     # vapsr

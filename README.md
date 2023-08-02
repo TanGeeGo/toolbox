@@ -9,8 +9,9 @@
 
 🚩 **更新内容（New Features/Updates）**
 
-- ✅ July 28, 2023. 加入uformer，nafnet，fftformer等复原模型的官方部署配置
-- ✅ July 26, 2023. 增加多卡训练，加入mimounet，restormer等复原模型的官方部署配置
+- ✅ Aug. 02, 2023. 部分transformer-based model加入local推理方式；支持多输入模型，*e.g*，退化PSF，信噪比等等；支持光学像差矫正任务，开源像差矫正模型[FSANet](https://opg.optica.org/oe/abstract.cfm?URI=oe-30-13-23485)（Frequency Self-Adaptive Network）及其官方部署配置，hope you enjoy it 🍻
+- ✅ Jul. 28, 2023. 加入uformer，nafnet，fftformer等复原模型的官方部署配置
+- ✅ Jul. 26, 2023. 增加多卡训练，加入mimounet，restormer等复原模型的官方部署配置
 
 ## Toolbox功能介绍（Introduction）
 - 支持多种low-level任务和主流图像复原网络。如denoise/super resolution/deblur/derain等任务，mimo-unet/restormer等图像复原网络，可以根据自身需求添加任务或者网络结构

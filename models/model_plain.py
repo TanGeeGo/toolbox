@@ -6,7 +6,7 @@ from torch.optim import Adam, AdamW
 
 from models.select_network import define_G
 from models.model_base import ModelBase
-from models._loss import CharbonnierLoss, SSIMLoss, FFTLoss, PSNRLoss
+from models._loss import CharbonnierLoss, SSIMLoss, FFTLoss, PSNRLoss, PerceptualLoss
 from models._lr_scheduler import MultiStepRestartLR, CosineAnnealingRestartLR, CosineAnnealingRestartCyclicLR, GradualWarmupScheduler
 
 from utils.utils_model import test_mode
@@ -123,6 +123,9 @@ class ModelPlain(ModelBase):
             elif G_lossfn_type == 'l1+fft':
                 self.G_lossfn = nn.L1Loss().to(self.device)
                 self.G_lossfn_aux = FFTLoss().to(self.device)
+            elif G_lossfn_type == 'l2+perc':
+                self.G_lossfn = nn.MSELoss().to(self.device)
+                self.G_lossfn_aux = PerceptualLoss().to(self.device)
 
         self.G_lossfn_weight = self.opt_train['G_lossfn_weight']
         if len(self.G_lossfn_type_) > 1:
