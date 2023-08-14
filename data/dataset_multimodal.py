@@ -1,4 +1,5 @@
 import json
+from PIL import Image
 import random
 import torch
 import numpy as np
@@ -107,11 +108,12 @@ class RandomResizedCrop(transforms.RandomResizedCrop):
     def __init__(
         self,
         size,
-        scale=(0.08, 1.0),
+        scale=(0.3, 1.0),
         ratio=(3.0 / 4.0, 4.0 / 3.0),
-        interpolation=F.InterpolationMode.BILINEAR,
+        interpolation=F.InterpolationMode.BICUBIC,
+        antialias=True
     ):
-        super().__init__(size, scale=scale, ratio=ratio, interpolation=interpolation)
+        super().__init__(size, scale=scale, ratio=ratio, interpolation=interpolation, antialias=antialias)
 
     def forward(self, img, tgt, interpolation1=None, interpolation2=None):
         """
@@ -330,16 +332,65 @@ class DatasetMultiModal(VisionDataset):
     # -----------------------------------------
     '''
 
-    def __init__(self, opt):
-        super(DatasetMultiModal, self).__init__(opt['root'])
+    def __init__(self, opt, phase='train'):
+        # ------------------------------------
+        # root path for VisionDataset
+        # ------------------------------------
+        root = '/' + opt['json_path_list'][0].split('/')[0]
+        super().__init__(root)
+
         self.opt = opt
         self.pairs = []
         self.weights = []
-        type_weight_list = [0.1, 0.2, 0.15, 0.25, 0.2, 0.15, 0.05, 0.05]
+        type_weight_list = [0.4, 0.15, 0.15, 0.3] # weight of different model datasets (sum to 1)
+
+        # ------------------------------------
+        # define the transform
+        #
+        # definition of the transform of the data-pairs
+        # transform_train1: for image to image mapping
+        # transform_train2: for instance segmentation mapping
+        # transform_train3: for pose to image (or reverse) mapping
+        # transform_train_seccrop: second crop the image pairs in probability
+        # transform_test: for test in training (validation)
+        # ------------------------------------
+        self.phase = phase
+        self.imagenet_mean=torch.tensor([0.485, 0.456, 0.406])
+        self.imagenet_std=torch.tensor([0.229, 0.224, 0.225])
+        if self.phase == 'train':
+            self.transform_train1 = Compose([
+                    RandomResizedCrop(self.opt['H_size'][1], scale=(0.3, 1.0), interpolation=3, antialias=True),  # 3 is bicubic
+                    RandomApply([
+                        ColorJitter(0.4, 0.4, 0.2, 0.1)
+                    ], p=0.8),
+                    RandomHorizontalFlip(),
+                    ToTensor(),
+                    Normalize(mean=self.imagenet_mean, std=self.imagenet_std)
+                ])
+            self.transform_train2 = Compose([
+                    RandomResizedCrop(self.opt['H_size'][1], scale=(0.9999, 1.0), interpolation=3, antialias=True),  # 3 is bicubic
+                    ToTensor(),
+                    Normalize(mean=self.imagenet_mean, std=self.imagenet_std)
+                ])
+            self.transform_train3 = Compose([
+                    RandomResizedCrop(self.opt['H_size'][1], scale=(0.9999, 1.0), interpolation=3, antialias=True),  # 3 is bicubic
+                    ToTensor(),
+                    Normalize(mean=self.imagenet_mean, std=self.imagenet_std)
+                ])
+            self.transform_train_seccrop = Compose([
+                    RandomResizedCrop(self.opt['H_size'], scale=(0.3, 1.0), ratio=(0.3, 0.7), interpolation=3, antialias=True),  # 3 is bicubic
+                ])
+        elif self.phase == 'valid':
+            self.transform_val = Compose([
+                RandomResizedCrop(self.opt['H_size'][1], scale=(0.9999, 1.0), interpolation=3, antialias=True),  # 3 is bicubic
+                ToTensor(),
+                Normalize(mean=self.imagenet_mean, std=self.imagenet_std)
+            ])
+
         # ------------------------------------
         # get the path of multimodal datasets
         # ------------------------------------
-        for idx, json_path in enumerate(opt['json_path_list']):
+        for idx, json_path in enumerate(self.opt['json_path_list']):
             cur_pairs = json.load(open(json_path))
             self.pairs.extend(cur_pairs)
             cur_num = len(cur_pairs)
@@ -349,7 +400,7 @@ class DatasetMultiModal(VisionDataset):
         # ------------------------------------
         # if you need one target pairs to guide the mapping
         # ------------------------------------
-        self.use_two_pairs = opt['use_two_pairs']
+        self.use_two_pairs = self.opt['use_two_pairs']
         if self.use_two_pairs:
             self.pair_type_dict = {}
             for idx, pair in enumerate(self.pairs):
@@ -361,61 +412,23 @@ class DatasetMultiModal(VisionDataset):
             for t in self.pair_type_dict:
                 print(t, len(self.pair_type_dict[t]))
 
-        # ------------------------------------
-        # definition of the transform of the data-pairs
-        # transform_train1: for image to image mapping
-        # transform_train2: for instance segmentation mapping
-        # transform_train3: for pose to image (or reverse) mapping
-        # transform_train_seccrop: second crop the image pairs in probability
-        # transform_test: for test in training (validation)
-        # ------------------------------------
-        self.transform_train1 = Compose([
-            RandomResizedCrop(opt['input_size'][1], scale=(opt['min_random_scale'], 1.0), interpolation=3), # 3 is bicubic
-            RandomApply([
-                ColorJitter(0.4, 0.4, 0.2, 0.1)
-            ], p=0.8),
-            RandomHorizontalFlip(),
-            ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        self.transform_train2 = Compose([
-            RandomResizedCrop(opt['input_size'][1], scale=(0.9999, 1.0), interpolation=3),  # 3 is bicubic
-            ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        self.transform_train3 = Compose([
-            RandomResizedCrop(opt['input_size'][1], scale=(0.9999, 1.0), interpolation=3),  # 3 is bicubic
-            ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        self.transform_train_seccrop = Compose([
-            RandomResizedCrop(opt['input_size'][1], scale=(opt['min_random_scale'], 1.0), ratio=(0.3, 0.7), interpolation=3),  # 3 is bicubic
-        ])
-        self.transform_test = Compose([
-            RandomResizedCrop(opt['input_size'][1], scale=(0.9999, 1.0), interpolation=3),  # 3 is bicubic
-            ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-
-        # mask postion generator 
+        # mask postion generator
+        self.window_size = (self.opt['H_size'][0] // self.opt['P_size'], 
+                            self.opt['H_size'][1] // self.opt['P_size'])
         self.masked_position_generator = MaskingGenerator(
-            opt['window_size'], num_masking_patches=opt['num_mask_patches'],
-            max_num_patches=opt['max_mask_patches_per_block'],
-            min_num_patches=opt['min_mask_patches_per_block'],
+            self.window_size, num_masking_patches=self.window_size[0]*self.window_size[1] // 2,
+            max_num_patches=self.window_size[0]*self.window_size[1] // 4, min_num_patches=16,
         )
 
-        if opt['phase'] == 'train':
+        if self.phase == 'train':
             self.half_mask_ratio = opt['half_mask_ratio']
         else:
             self.half_mask_ratio = 1.0
 
-        self.imagenet_mean=torch.tensor([0.485, 0.456, 0.406])
-        self.imagenet_std=torch.tensor([0.229, 0.224, 0.225])
-
     def _load_image(self, path):
         while True:
             try:
-                img = util.imread_uint(path)
+                img = util.imread_PIL(path)
             except OSError as e:
                 print(f'Catched exception: {str(e)}. Re-trying...')
                 import time
@@ -425,9 +438,10 @@ class DatasetMultiModal(VisionDataset):
         # process for nyuv2 depth: scale to 0~255
         if "sync_depth" in path:
             # nyuv2's depth range is 0~10m
-            img = np.float32(img / 10000.)
-            img = np.uint8(img * 255)[..., np.newaxis] # convert into 8bit image
-            img = np.concatenate((img, img, img), axis=2)
+            img = np.float32(np.array(img) / 10000.)
+            img = img * 255.
+            img = Image.fromarray(img)
+        img = img.convert('RGB')
         return img
     
     def _decide_interpolations(self, pair_type):
@@ -453,8 +467,8 @@ class DatasetMultiModal(VisionDataset):
             cur_transforms = self.transform_train3
         elif phase == 'train':
             cur_transforms = self.transform_train1
-        elif phase == 'test':
-            cur_transforms = self.transform_test
+        elif phase == 'valid':
+            cur_transforms = self.transform_val
 
         return cur_transforms
     
@@ -511,6 +525,7 @@ class DatasetMultiModal(VisionDataset):
         # get paired image
         # ------------------------------------
         pair = self.pairs[index]
+
         img_L = self._load_image(pair['image_path'])
         img_H = self._load_image(pair['target_path'])
 
@@ -519,10 +534,10 @@ class DatasetMultiModal(VisionDataset):
         # decide the interpolation and the transforms for training
         # ------------------------------------
         interpolation1, interpolation2 = self._decide_interpolations(pair['type'])
-        cur_transforms = self._decide_transforms(self.opt['phase'], pair['type'])
+        cur_transforms = self._decide_transforms(self.phase, pair['type'])
         
         img_L, img_H = cur_transforms(img_L, img_H, interpolation1, interpolation2)
-
+        
         if self.use_two_pairs:
             # ------------------------------------
             # if need one target pairs to guide the mapping
@@ -550,7 +565,7 @@ class DatasetMultiModal(VisionDataset):
         else:
             mask = self.masked_position_generator()
 
-        return img_L, img_H, mask, valid
+        return {'L': img_L, 'H': img_H, 'Mask': mask, 'Valid': valid}
     
     def __len__(self) -> int:
         return len(self.pairs)

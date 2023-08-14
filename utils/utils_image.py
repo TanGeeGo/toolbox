@@ -4,12 +4,14 @@ import random
 import numpy as np
 import torch
 import cv2
+import PIL
 from scipy import ndimage
 from torchvision.utils import make_grid
 from datetime import datetime
 # import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import scipy.io as scio
+
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 """
@@ -192,6 +194,12 @@ def imread_uint(path, n_channels=3):
         else:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # RGB
     return img
+
+# --------------------------------------------
+# get image of size HxWxn_channles (RGB) as PIL Image
+# --------------------------------------------
+def imread_PIL(path):
+    return PIL.Image.open(path)
 
 # --------------------------------------------
 # get float image of size HxWxn_channles (RGB) from mat files

@@ -154,6 +154,13 @@ def define_G(opt):
         from models.network_vapsr import vapsr as net
         netG = net(num_in_ch=opt_net['in_nc'], 
                    num_out_ch=opt_net['out_nc'])
+        
+    # ----------------------------------------
+    # painter
+    # ----------------------------------------
+    elif net_type == 'painter':
+        from models.network_vit import vit_large_patch16_input896x448_win_dec64_8glb_sl1
+        netG = vit_large_patch16_input896x448_win_dec64_8glb_sl1()
 
     # ----------------------------------------
     # others

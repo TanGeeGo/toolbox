@@ -114,6 +114,8 @@ class ModelPlain(ModelBase):
                 self.G_lossfn = PSNRLoss().to(self.device)
             elif G_lossfn_type == 'charbonnier':
                 self.G_lossfn = CharbonnierLoss(self.opt_train['G_charbonnier_eps']).to(self.device)
+            elif G_lossfn_type == 'smoothl1':
+                self.G_lossfn = nn.SmoothL1Loss(reduction='none', beta=0.01)
             else:
                 raise NotImplementedError('Loss type [{:s}] is not found.'.format(G_lossfn_type))
         elif len(self.G_lossfn_type_) == 2:

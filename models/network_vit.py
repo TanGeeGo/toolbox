@@ -621,6 +621,7 @@ class ViT_large(nn.Module):
         mask: [N, L], 0 is keep, 1 is remove, 
         valid: [N, 3, H, W]
         """
+        
         mask = mask[:, :, None].repeat(1, 1, self.patch_size**2 * 3)
         mask = self.unpatchify(mask)
 
@@ -642,7 +643,9 @@ class ViT_large(nn.Module):
             loss = (pred - target) ** 2.
         elif self.loss_func == "smoothl1":
             loss = F.smooth_l1_loss(pred, target, reduction="none", beta=0.01)
+        
         loss = (loss * mask).sum() / (mask.sum() + 1e-2)  # mean loss on removed patches
+        
         return loss
     
     def forward(self, imgs, tgts, bool_masked_pos=None, valid=None):
@@ -653,9 +656,9 @@ class ViT_large(nn.Module):
             bool_masked_pos = bool_masked_pos.flatten(1).to(torch.bool)
         
         latent = self.forward_encoder(imgs, tgts, bool_masked_pos)
-        pred = self.forward_decoder(latent)
+        pred = self.forward_decoder(latent) # [N, L, p*p*3]
         loss = self.forward_loss(pred, tgts, bool_masked_pos, valid)
-        return loss, self.patchify(pred), bool_masked_pos
+        return loss, pred, bool_masked_pos
 
 #########################################################################
 ##------------------------- Model Pre-statement -------------------------
@@ -702,6 +705,6 @@ if __name__ == "__main__":
     imgs = torch.randn((N, 3, H, W))
     tgts = torch.randn((N, 3, H, W))
     valid = torch.randn((N, 3, H, W))
-    loss, pred, masked_pos = model(imgs, tgts, valid=valid)
+    loss, pred, bool_masked_pos = model(imgs, tgts, valid=valid)
 
-    print(loss, pred.shape)
+    print(pred.shape, 'loss shape', loss.shape)

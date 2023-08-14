@@ -159,7 +159,7 @@ def main(json_path='options/option.json'):
             print('Pass this initialization! Initialization was done during network definition!')
             
     model.init_train()
-    # if you want to see the detail of the model
+    # unnote it if you want to see the detail of the model
     # if opt['rank'] == 0:
     #     logger.info(model.info_network())
     #     logger.info(model.info_params())
