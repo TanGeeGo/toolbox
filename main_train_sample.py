@@ -29,7 +29,7 @@ def main(json_path='options/option.json'):
     '''
     parser = argparse.ArgumentParser()
     parser.add_argument('--opt', type=str, default=json_path, help='Path to option JSON file.')
-    parser.add_argument('--dist', default=False)
+    parser.add_argument('--dist', type=bool, default=False)
     
     args = parser.parse_args()
     
@@ -46,6 +46,7 @@ def main(json_path='options/option.json'):
     # ----------------------------------------
     opt['dist'] = args.dist
     if opt['dist']:
+        print(opt['dist'])
         init_dist('pytorch')
     opt['rank'], opt['word_size'] = get_dist_info()
 

@@ -9,6 +9,7 @@
 
 🚩 **更新内容（New Features/Updates）**
 
+- ✅ Sep. 05, 2023. 修复单卡训练及多尺度输出model的bugs
 - ✅ Aug. 14, 2023. 加入多模态视觉模型[Painter](https://github.com/baaivision/Painter/tree/main/Painter)的官方部署配置
 - ✅ Aug. 02, 2023. 部分transformer-based model加入local推理方式；支持多输入模型，*e.g*，退化PSF，信噪比等等；支持光学像差矫正任务，开源像差矫正模型[FSANet](https://opg.optica.org/oe/abstract.cfm?URI=oe-30-13-23485)（Frequency Self-Adaptive Network）及其官方部署配置，hope you enjoy it 🍻
 - ✅ Jul. 28, 2023. 加入uformer，nafnet，fftformer等复原模型的官方部署配置
@@ -87,7 +88,7 @@ pip install -r requirements.txt
 ### 训练模型
     # 在项目根目录下直接运行训练脚本
     $ cd toolbox
-    $ python main_train_sample.py --opt options/option_xxxxx.json --dist False (单卡训练)
+    $ python main_train_sample.py --opt options/option_xxxxx.json (单卡训练，注意不要输入--dist及其后的信息)
     # pytorch2.0.0版本以后的多卡训练，注意此时option文件中的gpu_ids必须为list，例如：[0, 1, 2, 3]
     $ torchrun --nproc_per_node=${GPU_NUMs} main_train_sample.py --opt options/option_xxxxx.json --dist True
     # pytorch2.0.0版本以前的多卡训练，注意此时option文件中的gpu_ids必须为list，例如：[0, 1, 2, 3]
