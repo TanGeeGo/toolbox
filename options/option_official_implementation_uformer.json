@@ -97,9 +97,9 @@
       , "G_regularizer_orthstep": null    // unused
       , "G_regularizer_clipstep": null    // unused
   
-      , "checkpoint_valid": 5000           // for validating
-      , "checkpoint_save": 5000            // for saving model
-      , "checkpoint_print": 200            // for print
+      , "checkpoint_valid": 1              // for validating per N epoch
+      , "checkpoint_save": 1               // for saving model per N epoch
+      , "checkpoint_print": 200            // for print every iteration
     }
   }
   

@@ -108,7 +108,7 @@
     , "train": {
       "total_epoch": 3000
       ,"G_lossfn_type": "l2+perc"                // "l1" | "l2sum" | "l2" | "ssim" | "psnr" | "charbonnier" | 'l1+ssim' | 'l1+fft' | 'l2+perc'
-      , "G_lossfn_weight": [1.0, 0.1]            // default
+      , "G_lossfn_weight": [1.0, 1e-4]           // default
   
       , "G_optimizer_type": "adam"         // fixed, adam is enough, adamw is for transformer
       , "G_optimizer_lr": 1e-4             // learning rate
@@ -130,9 +130,9 @@
       , "G_regularizer_orthstep": null    // unused
       , "G_regularizer_clipstep": null    // unused
   
-      , "checkpoint_valid": 500           // for validating
-      , "checkpoint_save": 500            // for saving model
-      , "checkpoint_print": 20            // for print
+      , "checkpoint_valid": 1              // for validating per N epoch
+      , "checkpoint_save": 1               // for saving model per N epoch
+      , "checkpoint_print": 200            // for print every iteration
     }
   }
   

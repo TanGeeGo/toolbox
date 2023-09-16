@@ -1,7 +1,7 @@
 {
     "task": "official_implementation_of_mimounet"  //  root/task/images-models-options
-    , "model": "multiout"                          // "plain" | "multiout" | "progressive"
-    , "gpu_ids": [0]
+    , "model": "multiout"                             // "plain" | "multiout" | "progressive"
+    , "gpu_ids": [7]
   
     , "scale": 1       // broadcast to "netG" if SISR
     , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
@@ -17,14 +17,14 @@
         , "dataset_type": "plain"         // "dncnn" | "dnpatch" for dncnn,  | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch"
         , "dataroot_H": "/data1/Motion_Deblurring/GoPro/train/target_crops" // path of High-quality training dataset
         , "dataroot_L": "/data1/Motion_Deblurring/GoPro/train/input_crops" // path of Low-quality training dataset
-        , "H_size": 256                    // patch size 40 | 64 | 96 | 128 | 192 | 224 | 256
+        , "H_size": 224                    // patch size 40 | 64 | 96 | 128 | 192 | 224 | 256
   
         , "sigma": 25                     // unused
         , "sigma_test": 25                // unused
   
         , "dataloader_shuffle": true
         , "dataloader_num_workers": 8
-        , "dataloader_batch_size": 32     // batch size 1 | 16 | 32 | 48 | 64 | 128
+        , "dataloader_batch_size": 4     // batch size 1 | 16 | 32 | 48 | 64 | 128
       }
       , "valid": {
         "name": "valid_dataset"           // just name
@@ -36,7 +36,7 @@
         , "sigma_valid": 25               // unused
 
         , "dataloader_num_workers": 8
-        , "dataloader_batch_size": 16     // batch size 1 | 16 | 32 | 48 | 64 | 128
+        , "dataloader_batch_size": 4     // batch size 1 | 16 | 32 | 48 | 64 | 128
       }
       , "test": {
         "name": "test_dataset"            // unused
@@ -58,6 +58,8 @@
       , "out_nc": 3       // ouput channel number
       , "nc": 32          // basic hidden dim or base channel
       , "nb": 8           // number of blocks (list if different scales)
+      , "gc": 32
+      , "ng": 2
       , "act_mode": "R"   // unused "BR" for BN+ReLU | "R" for ReLU
       , "upsample_mode": "upconv"  // unused "pixelshuffle" | "convtranspose" | "upconv"
       , "downsample_mode": "strideconv"   // unused "strideconv" | "avgpool" | "maxpool"
@@ -68,17 +70,17 @@
     }
   
     , "train": {
-      "total_epoch": 3000
-      ,"G_lossfn_type": "l1+fft"               // "l1" | "l2sum" | "l2" | "ssim" 
+      "total_epoch": 3000000
+      ,"G_lossfn_type": "l1+fft"                     // "l1" | "l2sum" | "l2" | "ssim" 
       , "G_lossfn_weight": [1.0, 0.1]            // default
   
-      , "G_optimizer_type": "adam"        // fixed, adam is enough
-      , "G_optimizer_lr": 1e-4            // learning rate
+      , "G_optimizer_type": "adam"         // fixed, adam is enough
+      , "G_optimizer_lr": 1e-4             // learning rate
       , "G_optimizer_betas": [0.9, 0.999]  // beta 
-      , "G_optimizer_clipgrad": 0.01      // the max norm of grad for clipping (negative for unclipping)
+      , "G_optimizer_clipgrad": null       // the max norm of grad for clipping (negative for unclipping)
 
       , "G_scheduler_type": "MultiStepLR" // "MultiStepLR" is enough
-      , "G_scheduler_milestones": [500, 1000, 2000, 2500, 3000] // for "MultiStepLR"
+      , "G_scheduler_milestones": [200000, 400000, 600000, 800000, 1000000, 2000000] // for "MultiStepLR"
       , "G_scheduler_gamma": 0.5                                // for "MultiStepLR"
       , "G_scheduler_period": 500                                         // for "CosineAnnealingWarmRestarts"
       , "G_scheduler_eta_min": 0.000001                                   // for "CosineAnnealingWarmRestarts"
@@ -89,9 +91,9 @@
       , "G_regularizer_orthstep": null    // unused
       , "G_regularizer_clipstep": null    // unused
   
-      , "checkpoint_valid": 5000          // for validating
-      , "checkpoint_save": 5000           // for saving model
-      , "checkpoint_print": 200           // for print
+      , "checkpoint_valid": 1              // for validating per N epoch
+      , "checkpoint_save": 1               // for saving model per N epoch
+      , "checkpoint_print": 200            // for print every iteration
     }
   }
   

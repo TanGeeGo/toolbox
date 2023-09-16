@@ -81,7 +81,7 @@ def main(json_path='options/option.json'):
     logger_name = 'train'
     utils_logger.logger_info(logger_name, os.path.join(opt['path']['log'], logger_name+'.log'))
     logger = logging.getLogger(logger_name)
-    logger.info(option.dict2str(opt))
+    # logger.info(option.dict2str(opt))
 
     # ----------------------------------------
     # seed
@@ -109,12 +109,14 @@ def main(json_path='options/option.json'):
         if phase == 'train':
             train_set = define_Dataset(dataset_opt)
             if opt['rank'] == 0:
-                print('Dataset [{:s} - {:s}] is created.'.format(train_set.__class__.__name__, dataset_opt['name']))
+                print('Dataset [{:s} - {:s}] is created.'.\
+                      format(train_set.__class__.__name__, dataset_opt['name']))
             train_size = int(math.ceil(len(train_set) / dataset_opt['dataloader_batch_size']))
             if opt['rank'] == 0:
                 logger.info('Number of train images: {:,d}, iters: {:,d}'.format(len(train_set), train_size))
             if opt['dist']:
-                train_sampler = DistributedSampler(train_set, shuffle=dataset_opt['dataloader_shuffle'], drop_last=True, seed=seed)
+                train_sampler = DistributedSampler(train_set, shuffle=dataset_opt['dataloader_shuffle'], 
+                                                   drop_last=True, seed=seed)
                 train_loader = DataLoader(train_set,
                                           batch_size=dataset_opt['dataloader_batch_size']//opt['num_gpu'],
                                           shuffle=False,
@@ -133,7 +135,8 @@ def main(json_path='options/option.json'):
         elif phase == 'valid':
             valid_set = define_Dataset(dataset_opt)
             if opt['rank'] == 0:
-                print('Dataset [{:s} - {:s}] is created.'.format(valid_set.__class__.__name__, dataset_opt['name']))
+                print('Dataset [{:s} - {:s}] is created.'.\
+                      format(valid_set.__class__.__name__, dataset_opt['name']))
             valid_loader = DataLoader(valid_set, 
                                       batch_size=dataset_opt['dataloader_batch_size'],
                                       shuffle=False,
@@ -172,17 +175,19 @@ def main(json_path='options/option.json'):
     # ----------------------------------------
     '''
     for epoch in range(opt['train']['total_epoch']): # TODO: the terminate condition
+        logger.info('EPOCH: {:3d}'.format(epoch))
         if opt['dist']:
             train_sampler.set_epoch(epoch) # set the sampler in data distribution
 
         for i, train_data in enumerate(train_loader):
-
+            
             current_step += 1
 
             # -------------------------------
             # 1) feed patch pairs
             # -------------------------------
-            model.feed_data(train_data, epoch) if opt['model'] == 'progressive' else model.feed_data(train_data)
+            model.feed_data(train_data, epoch) if opt['model'] == 'progressive' else \
+                                                   model.feed_data(train_data)
             
             # -------------------------------
             # 2) optimize parameters
@@ -199,66 +204,73 @@ def main(json_path='options/option.json'):
             
             if current_step % opt['train']['checkpoint_print'] == 0 and opt['rank'] == 0:
                 logs = model.current_log()  # such as loss
-                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
+                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.\
+                    format(epoch, current_step, model.current_learning_rate())
                 for k, v in logs.items():  # merge log information into message
-                    message += '{:s}: {:.3e} '.format(k, v)
+                    message += '{:s}: {:.6f} '.format(k, v)
                 logger.info(message)
 
             # -------------------------------
-            # 4) save model
-            # -------------------------------
-            if current_step % opt['train']['checkpoint_save'] == 0 and opt['rank'] == 0:
-                logger.info('Saving the model.')
-                model.save(current_step)
-
-            # -------------------------------
-            # 5) update learning rate
+            # 4) update learning rate
             # -------------------------------
             model.update_learning_rate()
 
-            # -------------------------------
-            # 6) validating
-            # -------------------------------
-            if current_step % opt['train']['checkpoint_valid'] == 0 and opt['rank'] == 0:
+        # -------------------------------
+        # 5) saving model
+        # -------------------------------
+        if epoch % opt['train']['checkpoint_save'] == 0 and opt['rank'] == 0:
+            logger.info('Saving the model.')
+            model.save(current_step)
 
-                avg_psnr = 0.0
-                idx = 0
+        # -------------------------------
+        # 6) validating
+        # -------------------------------
+        if epoch % opt['train']['checkpoint_valid'] == 0 and opt['rank'] == 0:
 
-                for valid_data in valid_loader:
-                    idx += 1
-                    image_name_ext = os.path.basename(valid_data['L_path'][0])
-                    img_name, ext = os.path.splitext(image_name_ext)
+            avg_psnr = 0.0
+            avg_ssim = 0.0
+            idx = 0
 
-                    img_dir = os.path.join(opt['path']['images'], img_name)
-                    util.mkdir(img_dir)
+            for valid_data in valid_loader:
+                idx += 1
+                image_name_ext = os.path.basename(valid_data['L_path'][0])
+                img_name, ext = os.path.splitext(image_name_ext)
 
-                    model.feed_data(valid_data)
-                    model.valid()
+                img_dir = os.path.join(opt['path']['images'], img_name)
+                util.mkdir(img_dir)
 
-                    visuals = model.current_visuals()
-                    E_img = util.tensor2uint(visuals['E'])
-                    H_img = util.tensor2uint(visuals['H'])
+                model.feed_data(valid_data)
+                model.valid()
 
-                    # -----------------------
-                    # save estimated image E
-                    # -----------------------
-                    save_img_path = os.path.join(img_dir, '{:s}_{:d}.png'.format(img_name, current_step))
-                    util.imsave(E_img, save_img_path)
+                visuals = model.current_visuals()
+                E_img = util.tensor2uint(visuals['E'])
+                H_img = util.tensor2uint(visuals['H'])
 
-                    # -----------------------
-                    # calculate PSNR
-                    # -----------------------
-                    current_psnr = util.calculate_psnr(E_img, H_img)
+                # -----------------------
+                # save estimated image E
+                # -----------------------
+                save_img_path = os.path.join(img_dir, '{:s}_{:d}.png'.format(img_name, current_step))
+                util.imsave(E_img, save_img_path)
 
-                    logger.info('{:->4d}--> {:>10s} | {:<4.2f}dB'.format(idx, image_name_ext, current_psnr))
+                # -----------------------
+                # calculate PSNR and SSIM
+                # -----------------------
+                current_psnr = util.calculate_psnr(E_img, H_img)
+                current_ssim = util.calculate_ssim(E_img, H_img)
 
-                    avg_psnr += current_psnr
+                # logger.info('{:->4d}--> {:>10s} | {:<4.2f}dB'.format(idx, image_name_ext, current_psnr))
 
-                avg_psnr = avg_psnr / idx
+                avg_psnr += current_psnr
+                avg_ssim += current_ssim
 
-                # validating log
-                writer.add_scalar('Average PSNR', avg_psnr, epoch + 1)
-                logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+            avg_psnr = avg_psnr / idx
+            avg_ssim = avg_ssim / idx
+
+            # validating log
+            writer.add_scalar('Average PSNR', avg_psnr, epoch + 1)
+            logger.info('<epoch:{:3d}, Average PSNR : {:<.2f}dB, Average SSIM : {:<.2f}\n'.\
+                        format(epoch, avg_psnr, avg_ssim))
+        
     writer.close()
 
 if __name__ == '__main__':

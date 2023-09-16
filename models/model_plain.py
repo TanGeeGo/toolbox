@@ -140,18 +140,12 @@ class ModelPlain(ModelBase):
     # define optimizer
     # ----------------------------------------
     def define_optimizer(self):
-        G_optim_params = []
-        for k, v in self.netG.named_parameters():
-            if v.requires_grad:
-                G_optim_params.append(v)
-            else:
-                print('Params [{:s}] will not optimize.'.format(k))
         if self.opt_train['G_optimizer_type'] == 'adam':
-            self.G_optimizer = Adam(G_optim_params, lr=self.opt_train['G_optimizer_lr'],
+            self.G_optimizer = Adam(self.netG.parameters(), lr=self.opt_train['G_optimizer_lr'],
                                     betas=self.opt_train['G_optimizer_betas'],
                                     weight_decay=self.opt_train['G_optimizer_wd'])
         elif self.opt_train['G_optimizer_type'] == 'adamw':
-            self.G_optimizer = AdamW(G_optim_params, lr=self.opt_train['G_optimizer_lr'],
+            self.G_optimizer = AdamW(self.netG.parameters(), lr=self.opt_train['G_optimizer_lr'],
                                     betas=self.opt_train['G_optimizer_betas'],
                                     weight_decay=self.opt_train['G_optimizer_wd'])
         else:
@@ -225,8 +219,10 @@ class ModelPlain(ModelBase):
         if len(self.G_lossfn_weight) == 1:
             G_loss = self.G_lossfn_weight[0] * self.G_lossfn(self.E, self.H)
         elif len(self.G_lossfn_weight) == 2:
-            G_loss = self.G_lossfn_weight[0] * self.G_lossfn(self.E, self.H) + \
-                self.G_lossfn_weight[1] * self.G_lossfn_aux(self.E, self.H)
+            G_loss_main = self.G_lossfn(self.E, self.H)
+            G_loss_aux = self.G_lossfn_aux(self.E, self.H)
+            G_loss = self.G_lossfn_weight[0] * G_loss_main + \
+                self.G_lossfn_weight[1] * G_loss_aux
 
         G_loss.backward()
 
@@ -251,7 +247,12 @@ class ModelPlain(ModelBase):
             self.netG.apply(regularizer_clip)
 
         # self.log_dict['G_loss'] = G_loss.item()/self.E.size()[0]  # if `reduction='sum'`
-        self.log_dict['G_loss'] = G_loss.item()
+        if len(self.G_lossfn_weight) == 1:
+            self.log_dict['G_loss'] = G_loss.item()
+        elif len(self.G_lossfn_weight) == 2:
+            self.log_dict[self.G_lossfn_type_[0]+'_loss'] = G_loss_main.item()
+            self.log_dict[self.G_lossfn_type_[1]+'_loss'] = G_loss_aux.item()
+            self.log_dict['G_loss'] = G_loss.item()
 
         if self.opt_train['E_decay'] > 0:
             self.update_E(self.opt_train['E_decay'])

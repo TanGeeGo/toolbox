@@ -9,6 +9,7 @@
 
 🚩 **更新内容（New Features/Updates）**
 
+- ✅ Sep. 16, 2023. 修复model_multiout中loss叠加回传梯度错误的问题，改进了valid和输出visualization
 - ✅ Sep. 05, 2023. 修复单卡训练及多尺度输出model的bugs
 - ✅ Aug. 14, 2023. 加入多模态视觉模型[Painter](https://github.com/baaivision/Painter/tree/main/Painter)的官方部署配置
 - ✅ Aug. 02, 2023. 部分transformer-based model加入local推理方式；支持多输入模型，*e.g*，退化PSF，信噪比等等；支持光学像差矫正任务，开源像差矫正模型[FSANet](https://opg.optica.org/oe/abstract.cfm?URI=oe-30-13-23485)（Frequency Self-Adaptive Network）及其官方部署配置，hope you enjoy it 🍻

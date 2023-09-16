@@ -39,17 +39,26 @@ class ModelMultiout(ModelPlain):
         self.netG_forward()
         # ensure the length of E equals to H
         assert len(self.E) == len(self.H), ValueError('Output amount is not right')
-        G_loss_list = []
+        # G_loss_list = []
         if len(self.G_lossfn_weight) == 1:
-            for item in range(len(self.E)):
-                G_loss_item = self.G_lossfn_weight * self.G_lossfn(self.E[item], self.H[item])
-                G_loss_list.append(G_loss_item)
+            G_loss = self.G_lossfn(self.E[0], self.H[0]) + self.G_lossfn(self.E[1], self.H[1]) + \
+                     self.G_lossfn(self.E[2], self.H[2])
         elif len(self.G_lossfn_weight) == 2:
-            for item in range(len(self.E)):
-                G_loss_item = self.G_lossfn_weight[0] * self.G_lossfn(self.E[item], self.H[item]) + \
-                    self.G_lossfn_weight[1] * self.G_lossfn_aux(self.E[item], self.H[item])
-                G_loss_list.append(G_loss_item)
-        G_loss = sum(G_loss_list)
+            G_loss_main = self.G_lossfn(self.E[0], self.H[0]) + self.G_lossfn(self.E[1], self.H[1]) + \
+                          self.G_lossfn(self.E[2], self.H[2])
+            G_loss_aux = self.G_lossfn_aux(self.E[0], self.H[0]) + self.G_lossfn_aux(self.E[1], self.H[1]) + \
+                         self.G_lossfn_aux(self.E[2], self.H[2])
+            G_loss = self.G_lossfn_weight[0] * G_loss_main + \
+                     self.G_lossfn_weight[1] * G_loss_aux
+            # if self.opt_train['G_lossfn_type'] == 'l1+fft':
+            #     loss_content = self.G_lossfn(self.E[0], self.H[0]) + self.G_lossfn(self.E[1], self.H[1]) + \
+            #                 self.G_lossfn(self.E[2], self.H[2])
+            #     loss_fft = self.G_lossfn(torch.fft.rfft2(self.E[0]), torch.fft.rfft2(self.H[0])) + \
+            #             self.G_lossfn(torch.fft.rfft2(self.E[1]), torch.fft.rfft2(self.H[1])) + \
+            #             self.G_lossfn(torch.fft.rfft2(self.E[2]), torch.fft.rfft2(self.H[2]))
+            #     G_loss = self.G_lossfn_weight[0] * loss_content + self.G_lossfn_weight[1] * loss_fft
+            # else:
+            #     raise NotImplementedError('Loss type [{:s}] is not found.'.format(self.opt_train['G_lossfn_type']))
         G_loss.backward()
 
         # ------------------------------------
@@ -73,7 +82,12 @@ class ModelMultiout(ModelPlain):
             self.netG.apply(regularizer_clip)
 
         # self.log_dict['G_loss'] = G_loss.item()/self.E.size()[0]  # if `reduction='sum'`
-        self.log_dict['G_loss'] = G_loss.item()
+        if len(self.G_lossfn_weight) == 1:
+            self.log_dict['G_loss'] = G_loss.item()
+        elif len(self.G_lossfn_weight) == 2:
+            self.log_dict[self.G_lossfn_type_[0]+'_loss'] = G_loss_main.item()
+            self.log_dict[self.G_lossfn_type_[1]+'_loss'] = G_loss_aux.item()
+            self.log_dict['G_loss'] = G_loss.item()
 
         if self.opt_train['E_decay'] > 0:
             self.update_E(self.opt_train['E_decay'])

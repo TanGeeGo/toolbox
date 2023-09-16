@@ -475,13 +475,12 @@ class FFTLoss(nn.Module):
             Supported choices are 'none' | 'mean' | 'sum'. Default: 'mean'.
     """
 
-    def __init__(self, loss_weight=1.0, reduction='mean'):
+    def __init__(self, reduction='mean'):
         super(FFTLoss, self).__init__()
         
-        self.loss_weight = loss_weight
         self.reduction = reduction
 
-    def forward(self, pred, target, weight=None, **kwargs):
+    def forward(self, pred, target, **kwargs):
         """
         Args:
             pred (Tensor): of shape (..., C, H, W). Predicted tensor.
@@ -490,11 +489,9 @@ class FFTLoss(nn.Module):
                 weights. Default: None.
         """
 
-        pred_fft = torch.fft.fft2(pred, dim=(-2, -1))
-        pred_fft = torch.stack([pred_fft.real, pred_fft.imag], dim=-1)
-        target_fft = torch.fft.fft2(target, dim=(-2, -1))
-        target_fft = torch.stack([target_fft.real, target_fft.imag], dim=-1)
-        return self.loss_weight * l1_loss(pred_fft, target_fft, weight, reduction=self.reduction)
+        pred_fft = torch.fft.rfft2(pred, dim=(-2, -1))
+        target_fft = torch.fft.rfft2(target, dim=(-2, -1))
+        return l1_loss(pred_fft, target_fft, reduction=self.reduction)
 
 # --------------------------------------------
 # Edge loss
